@@ -12,8 +12,11 @@ venv/
 # Knowledge base test artifacts
 raw/
 wiki/
-.openkb/
+.openwiki/
 
 # Local only
 docs/
 .claude/
+.context/
+my-kb/
+my-wiki/

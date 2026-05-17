@@ -5,13 +5,13 @@ from pathlib import Path
 
 from agents import Agent, Runner, function_tool
 
-from openkb.agent.tools import list_wiki_files, read_wiki_file
+from openwiki.agent.tools import list_wiki_files, read_wiki_file
 
 MAX_TURNS = 50
-from openkb.schema import SCHEMA_MD, get_agents_md
+from openwiki.schema import SCHEMA_MD, get_agents_md
 
 _LINTER_INSTRUCTIONS_TEMPLATE = """\
-You are OpenKB's semantic lint agent. Your job is to audit the wiki
+You are OpenWiki's semantic lint agent. Your job is to audit the wiki
 for quality issues that structural tools cannot detect.
 
 {schema_md}
@@ -26,7 +26,7 @@ for quality issues that structural tools cannot detect.
 5. **Concept coverage** — Are important themes in the summaries missing concept pages?
 
 ## Process
-1. Start with index.md to understand scope.
+1. Start with index.md to understand scope. Follow the link to explorations.md for saved explorations.
 2. Read summary pages to understand document content.
 3. Read concept pages to check for contradictions and gaps.
 4. Produce a structured Markdown report listing issues found with references
@@ -88,10 +88,10 @@ async def run_knowledge_lint(kb_dir: Path, model: str) -> str:
     Returns:
         The agent's lint report as a Markdown string.
     """
-    from openkb.config import load_config
+    from openwiki.config import load_config
 
-    openkb_dir = kb_dir / ".openkb"
-    config = load_config(openkb_dir / "config.yaml")
+    openwiki_dir = kb_dir / ".openwiki"
+    config = load_config(openwiki_dir / "config.yaml")
     language: str = config.get("language", "en")
 
     wiki_root = str(kb_dir / "wiki")
@@ -100,7 +100,7 @@ async def run_knowledge_lint(kb_dir: Path, model: str) -> str:
     prompt = (
         "Please audit this knowledge base wiki for semantic quality issues: "
         "contradictions, gaps, staleness, redundancy, and missing concept pages. "
-        "Start with index.md, then read summaries and concepts as needed. "
+        "Start with index.md, follow the link to explorations.md, then read summaries and concepts as needed. "
         "Produce a structured Markdown report."
     )
 

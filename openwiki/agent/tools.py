@@ -1,4 +1,4 @@
-"""Plain wiki tool functions for the OpenKB agent.
+"""Plain wiki tool functions for the OpenWiki agent.
 
 These functions are intentionally NOT decorated with ``@function_tool`` here.
 Decoration happens when building the agent so that the same functions can be

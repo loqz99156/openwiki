@@ -4,14 +4,14 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from openkb.cli import cli
-from openkb.schema import AGENTS_MD
+from openwiki.cli import cli
+from openwiki.schema import AGENTS_MD
 
 
 def test_init_creates_structure(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path), \
-         patch("openkb.cli.register_kb"):
+         patch("openwiki.cli.register_kb"):
         result = runner.invoke(cli, ["init"])
         assert result.exit_code == 0
 
@@ -23,28 +23,29 @@ def test_init_creates_structure(tmp_path):
         assert (cwd / "wiki" / "sources" / "images").is_dir()
         assert (cwd / "wiki" / "summaries").is_dir()
         assert (cwd / "wiki" / "concepts").is_dir()
-        assert (cwd / ".openkb").is_dir()
+        assert (cwd / ".openwiki").is_dir()
 
         # Files
         assert (cwd / "wiki" / "AGENTS.md").is_file()
         assert (cwd / "wiki" / "log.md").is_file()
         assert (cwd / "wiki" / "index.md").is_file()
-        assert (cwd / ".openkb" / "config.yaml").is_file()
-        assert (cwd / ".openkb" / "hashes.json").is_file()
+        assert (cwd / "wiki" / "explorations.md").is_file()
+        assert (cwd / ".openwiki" / "config.yaml").is_file()
+        assert (cwd / ".openwiki" / "hashes.json").is_file()
 
         # hashes.json is empty object
-        hashes = json.loads((cwd / ".openkb" / "hashes.json").read_text())
+        hashes = json.loads((cwd / ".openwiki" / "hashes.json").read_text())
         assert hashes == {}
 
         # index.md header
         index_content = (cwd / "wiki" / "index.md").read_text()
-        assert index_content == "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Explorations\n"
+        assert index_content == "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Explorations\n- [[explorations]]\n"
 
 
 def test_init_schema_content(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path), \
-         patch("openkb.cli.register_kb"):
+         patch("openwiki.cli.register_kb"):
         result = runner.invoke(cli, ["init"])
         assert result.exit_code == 0
 
@@ -56,7 +57,7 @@ def test_init_schema_content(tmp_path):
 def test_init_already_exists(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path), \
-         patch("openkb.cli.register_kb"):
+         patch("openwiki.cli.register_kb"):
         # First run should succeed
         result = runner.invoke(cli, ["init"])
         assert result.exit_code == 0

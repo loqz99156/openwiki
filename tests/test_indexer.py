@@ -1,4 +1,4 @@
-"""Tests for openkb.indexer."""
+"""Tests for openwiki.indexer."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from openkb.indexer import IndexResult, index_long_document
+from openwiki.indexer import IndexResult, index_long_document
 
 
 class TestIndexLongDocument:
@@ -44,8 +44,8 @@ class TestIndexLongDocument:
         pdf_path = tmp_path / "sample.pdf"
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
-        with patch("openkb.indexer.PageIndexClient", return_value=fake_client), \
-             patch("openkb.images.convert_pdf_to_pages", return_value=self._fake_pages()):
+        with patch("openwiki.indexer.PageIndexClient", return_value=fake_client), \
+             patch("openwiki.images.convert_pdf_to_pages", return_value=self._fake_pages()):
             result = index_long_document(pdf_path, kb_dir)
 
         assert isinstance(result, IndexResult)
@@ -70,8 +70,8 @@ class TestIndexLongDocument:
         pdf_path = tmp_path / "sample.pdf"
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
-        with patch("openkb.indexer.PageIndexClient", return_value=fake_client), \
-             patch("openkb.images.convert_pdf_to_pages", return_value=self._fake_pages()):
+        with patch("openwiki.indexer.PageIndexClient", return_value=fake_client), \
+             patch("openwiki.images.convert_pdf_to_pages", return_value=self._fake_pages()):
             index_long_document(pdf_path, kb_dir)
 
         json_file = kb_dir / "wiki" / "sources" / "sample.json"
@@ -92,8 +92,8 @@ class TestIndexLongDocument:
         pdf_path = tmp_path / "sample.pdf"
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
-        with patch("openkb.indexer.PageIndexClient", return_value=fake_client), \
-             patch("openkb.images.convert_pdf_to_pages", return_value=self._fake_pages()):
+        with patch("openwiki.indexer.PageIndexClient", return_value=fake_client), \
+             patch("openwiki.images.convert_pdf_to_pages", return_value=self._fake_pages()):
             index_long_document(pdf_path, kb_dir)
 
         summary_file = kb_dir / "wiki" / "summaries" / "sample.md"
@@ -113,8 +113,8 @@ class TestIndexLongDocument:
         pdf_path = tmp_path / "report.pdf"
         pdf_path.write_bytes(b"%PDF-1.4 fake")
 
-        with patch("openkb.indexer.PageIndexClient", return_value=fake_client) as mock_cls, \
-             patch("openkb.images.convert_pdf_to_pages", return_value=self._fake_pages()):
+        with patch("openwiki.indexer.PageIndexClient", return_value=fake_client) as mock_cls, \
+             patch("openwiki.images.convert_pdf_to_pages", return_value=self._fake_pages()):
             index_long_document(pdf_path, kb_dir)
 
         # Verify PageIndexClient was instantiated with correct IndexConfig

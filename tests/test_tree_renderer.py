@@ -1,9 +1,9 @@
-"""Tests for openkb.tree_renderer."""
+"""Tests for openwiki.tree_renderer."""
 from __future__ import annotations
 
 import pytest
 
-from openkb.tree_renderer import render_summary_md
+from openwiki.tree_renderer import render_summary_md
 
 
 # ---------------------------------------------------------------------------

@@ -1,11 +1,11 @@
-"""Tests for openkb.agent.tools — plain function implementations."""
+"""Tests for openwiki.agent.tools — plain function implementations."""
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from openkb.agent.tools import get_wiki_page_content, list_wiki_files, parse_pages, read_wiki_file, write_wiki_file
+from openwiki.agent.tools import get_wiki_page_content, list_wiki_files, parse_pages, read_wiki_file, write_wiki_file
 
 
 # ---------------------------------------------------------------------------

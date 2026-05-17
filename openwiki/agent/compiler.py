@@ -1,4 +1,4 @@
-"""Wiki compilation pipeline for OpenKB.
+"""Wiki compilation pipeline for OpenWiki.
 
 Pipeline leveraging LLM prompt caching:
   Step 1: Build base context A (schema + document content).
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import litellm
 
-from openkb.schema import get_agents_md
+from openwiki.schema import get_agents_md
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _SYSTEM_TEMPLATE = """\
-You are OpenKB's wiki compilation agent for a personal knowledge base.
+You are OpenWiki's wiki compilation agent for a personal knowledge base.
 
 {schema_md}
 
@@ -731,10 +731,10 @@ async def compile_short_doc(
     Step 1: Build base context A (schema + doc content), generate summary.
     Steps 2-4: Delegated to ``_compile_concepts``.
     """
-    from openkb.config import load_config
+    from openwiki.config import load_config
 
-    openkb_dir = kb_dir / ".openkb"
-    config = load_config(openkb_dir / "config.yaml")
+    openwiki_dir = kb_dir / ".openwiki"
+    config = load_config(openwiki_dir / "config.yaml")
     language: str = config.get("language", "en")
 
     wiki_dir = kb_dir / "wiki"
@@ -782,10 +782,10 @@ async def compile_long_doc(
     The summary page is already written by the indexer. This function
     generates concept pages and updates the index.
     """
-    from openkb.config import load_config
+    from openwiki.config import load_config
 
-    openkb_dir = kb_dir / ".openkb"
-    config = load_config(openkb_dir / "config.yaml")
+    openwiki_dir = kb_dir / ".openwiki"
+    config = load_config(openwiki_dir / "config.yaml")
     language: str = config.get("language", "en")
 
     wiki_dir = kb_dir / "wiki"

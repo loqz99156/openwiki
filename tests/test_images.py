@@ -1,4 +1,4 @@
-"""Tests for openkb.images — base64 extraction and relative image copy."""
+"""Tests for openwiki.images — base64 extraction and relative image copy."""
 from __future__ import annotations
 
 import base64
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from openkb.images import copy_relative_images, extract_base64_images
+from openwiki.images import copy_relative_images, extract_base64_images
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ class TestExtractBase64Images:
         bad = "NOT_VALID_BASE64!!!"
         md = f"![alt](data:image/png;base64,{bad})"
         import logging
-        with caplog.at_level(logging.WARNING, logger="openkb.images"):
+        with caplog.at_level(logging.WARNING, logger="openwiki.images"):
             result = extract_base64_images(md, "doc", images_dir)
         assert result == md  # unchanged
         # No files created
@@ -90,7 +90,7 @@ class TestExtractBase64Images:
             f"![bad](data:image/png;base64,{bad})"
         )
         import logging
-        with caplog.at_level(logging.WARNING, logger="openkb.images"):
+        with caplog.at_level(logging.WARNING, logger="openwiki.images"):
             result = extract_base64_images(md, "doc", images_dir)
         assert "![good](sources/images/doc/img_001.png)" in result
         assert f"data:image/png;base64,{bad}" in result
@@ -125,7 +125,7 @@ class TestCopyRelativeImages:
 
         md = "![missing](missing.png)"
         import logging
-        with caplog.at_level(logging.WARNING, logger="openkb.images"):
+        with caplog.at_level(logging.WARNING, logger="openwiki.images"):
             result = copy_relative_images(md, source_dir, "doc", images_dir)
         assert result == md  # unchanged
         assert list(images_dir.iterdir()) == []

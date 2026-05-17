@@ -1,4 +1,4 @@
-"""File-system watcher for the OpenKB raw/ directory.
+"""File-system watcher for the OpenWiki raw/ directory.
 
 Watches for new or modified files and debounces rapid bursts of events
 before calling the user's callback with a sorted list of affected paths.

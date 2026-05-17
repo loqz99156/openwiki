@@ -1,4 +1,4 @@
-"""Document conversion pipeline for OpenKB."""
+"""Document conversion pipeline for OpenWiki."""
 from __future__ import annotations
 
 import logging
@@ -9,9 +9,9 @@ from pathlib import Path
 import pymupdf
 from markitdown import MarkItDown
 
-from openkb.config import load_config
-from openkb.images import copy_relative_images, extract_base64_images, convert_pdf_with_images
-from openkb.state import HashRegistry
+from openwiki.config import load_config
+from openwiki.images import copy_relative_images, extract_base64_images, convert_pdf_with_images
+from openwiki.state import HashRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +47,10 @@ def convert_document(src: Path, kb_dir: Path) -> ConvertResult:
     # ------------------------------------------------------------------
     # Load config & state
     # ------------------------------------------------------------------
-    openkb_dir = kb_dir / ".openkb"
-    config = load_config(openkb_dir / "config.yaml")
+    openwiki_dir = kb_dir / ".openwiki"
+    config = load_config(openwiki_dir / "config.yaml")
     threshold: int = config.get("pageindex_threshold", 20)
-    registry = HashRegistry(openkb_dir / "hashes.json")
+    registry = HashRegistry(openwiki_dir / "hashes.json")
 
     # ------------------------------------------------------------------
     # 1. Hash check

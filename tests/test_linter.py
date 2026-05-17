@@ -1,4 +1,4 @@
-"""Tests for openkb.agent.linter (Task 14)."""
+"""Tests for openwiki.agent.linter (Task 14)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from openkb.agent.linter import build_lint_agent, run_knowledge_lint
-from openkb.schema import SCHEMA_MD
+from openwiki.agent.linter import build_lint_agent, run_knowledge_lint
+from openwiki.schema import SCHEMA_MD
 
 
 class TestBuildLintAgent:
@@ -50,7 +50,7 @@ class TestRunKnowledgeLint:
         mock_result = MagicMock()
         mock_result.final_output = "## Lint Report\n\nNo issues found."
 
-        with patch("openkb.agent.linter.Runner.run", new_callable=AsyncMock) as mock_run:
+        with patch("openwiki.agent.linter.Runner.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = mock_result
             result = await run_knowledge_lint(tmp_path, "gpt-4o-mini")
 
@@ -66,7 +66,7 @@ class TestRunKnowledgeLint:
             captured["agent"] = agent
             return MagicMock(final_output="report")
 
-        with patch("openkb.agent.linter.Runner.run", side_effect=fake_run):
+        with patch("openwiki.agent.linter.Runner.run", side_effect=fake_run):
             await run_knowledge_lint(tmp_path, "gpt-4o-mini")
 
         assert captured["agent"].name == "wiki-linter"
@@ -78,7 +78,7 @@ class TestRunKnowledgeLint:
         mock_result = MagicMock()
         mock_result.final_output = None
 
-        with patch("openkb.agent.linter.Runner.run", new_callable=AsyncMock) as mock_run:
+        with patch("openwiki.agent.linter.Runner.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = mock_result
             result = await run_knowledge_lint(tmp_path, "gpt-4o-mini")
 

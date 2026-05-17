@@ -1,4 +1,4 @@
-"""Tests for openkb.agent.compiler pipeline."""
+"""Tests for openwiki.agent.compiler pipeline."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
-from openkb.agent.compiler import (
+from openwiki.agent.compiler import (
     compile_long_doc,
     compile_short_doc,
     _compile_concepts,
@@ -585,7 +585,7 @@ class TestCompileShortDoc:
         )
         source_path = wiki / "sources" / "test-doc.md"
         source_path.write_text("# Test Doc\n\nSome content about transformers.", encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".openwiki").mkdir()
         (tmp_path / "raw").mkdir()
         (tmp_path / "raw" / "test-doc.pdf").write_bytes(b"fake")
 
@@ -603,7 +603,7 @@ class TestCompileShortDoc:
             "content": "# Transformer\n\nA neural network architecture.",
         })
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("openwiki.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([summary_response, concepts_list_response])
             )
@@ -638,9 +638,9 @@ class TestCompileShortDoc:
         )
         source_path = wiki / "sources" / "doc.md"
         source_path.write_text("Content", encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".openwiki").mkdir()
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("openwiki.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion(["Plain summary text", "not valid json"])
             )
@@ -663,9 +663,9 @@ class TestCompileLongDoc:
         )
         summary_path = wiki / "summaries" / "big-doc.md"
         summary_path.write_text("# Big Doc\n\nPageIndex summary tree.", encoding="utf-8")
-        openkb_dir = tmp_path / ".openkb"
-        openkb_dir.mkdir()
-        (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
+        openwiki_dir = tmp_path / ".openwiki"
+        openwiki_dir.mkdir()
+        (openwiki_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
         (tmp_path / "raw").mkdir()
         (tmp_path / "raw" / "big-doc.pdf").write_bytes(b"fake")
 
@@ -680,7 +680,7 @@ class TestCompileLongDoc:
             "content": "# Deep Learning\n\nA subfield of ML.",
         })
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("openwiki.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([overview_response, concepts_list_response])
             )
@@ -764,7 +764,7 @@ class TestCompileConceptsPlan:
             mock_resp.usage.prompt_tokens_details = None
             return mock_resp
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("openwiki.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([plan_response])
             )
@@ -812,7 +812,7 @@ class TestCompileConceptsPlan:
         doc_msg = {"role": "user", "content": "Document content."}
         summary = "Summary."
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("openwiki.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([plan_response])
             )
@@ -846,7 +846,7 @@ class TestCompileConceptsPlan:
         doc_msg = {"role": "user", "content": "Document content."}
         summary = "Summary."
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("openwiki.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([plan_response])
             )
@@ -879,7 +879,7 @@ class TestBriefIntegration:
         )
         source_path = wiki / "sources" / "test-doc.md"
         source_path.write_text("# Test Doc\n\nContent.", encoding="utf-8")
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".openwiki").mkdir()
         (tmp_path / "raw").mkdir()
         (tmp_path / "raw" / "test-doc.pdf").write_bytes(b"fake")
 
@@ -897,7 +897,7 @@ class TestBriefIntegration:
             "content": "# Transformer\n\nA neural network architecture.",
         })
 
-        with patch("openkb.agent.compiler.litellm") as mock_litellm:
+        with patch("openwiki.agent.compiler.litellm") as mock_litellm:
             mock_litellm.completion = MagicMock(
                 side_effect=_mock_completion([summary_resp, plan_resp])
             )

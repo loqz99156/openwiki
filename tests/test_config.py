@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from openkb.config import DEFAULT_CONFIG, load_config, save_config
+from openwiki.config import DEFAULT_CONFIG, load_config, save_config
 
 
 def test_default_config_keys():

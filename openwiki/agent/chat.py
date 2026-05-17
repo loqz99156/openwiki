@@ -1,6 +1,6 @@
-"""Interactive multi-turn chat REPL for the OpenKB knowledge base.
+"""Interactive multi-turn chat REPL for the OpenWiki knowledge base.
 
-Builds on the single-shot Q&A agent in ``openkb.agent.query`` and keeps
+Builds on the single-shot Q&A agent in ``openwiki.agent.query`` and keeps
 conversation state in ``ChatSession``. Uses prompt_toolkit for the input
 line (history, editing, bottom toolbar) and streams responses directly to
 stdout to preserve the existing ``query`` visual.
@@ -22,9 +22,9 @@ from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.shortcuts import CompleteStyle, print_formatted_text
 from prompt_toolkit.styles import Style
 
-from openkb.agent.chat_session import ChatSession
-from openkb.agent.query import MAX_TURNS, build_query_agent
-from openkb.log import append_log
+from openwiki.agent.chat_session import ChatSession
+from openwiki.agent.query import MAX_TURNS, build_query_agent
+from openwiki.log import append_log
 
 
 _STYLE_DICT: dict[str, str] = {
@@ -52,7 +52,7 @@ _STYLE_DICT: dict[str, str] = {
 
 _HELP_TEXT = (
     "Commands:\n"
-    "  /exit          Exit (Ctrl-D also works)\n"
+    "  /bye           Exit (Ctrl-D also works)\n"
     "  /clear         Start a fresh session (current one is kept on disk)\n"
     "  /save [name]   Export transcript to wiki/explorations/\n"
     "  /status        Show knowledge base status\n"
@@ -99,8 +99,8 @@ def _extract_preview(text: str, limit: int = 150) -> str:
     return text[: limit - 1] + "\u2026"
 
 
-def _openkb_version() -> str:
-    from openkb import __version__
+def _openwiki_version() -> str:
+    from openwiki import __version__
     return __version__
 
 
@@ -116,12 +116,12 @@ def _display_kb_dir(kb_dir: Path) -> str:
 
 def _print_header(session: ChatSession, kb_dir: Path, style: Style) -> None:
     disp_dir = _display_kb_dir(kb_dir)
-    version = _openkb_version()
+    version = _openwiki_version()
     version_suffix = f" v{version}\n" if version else "\n"
     print()
     _fmt(
         style,
-        ("class:header.title", "OpenKB Chat"),
+        ("class:header.title", "OpenWiki Chat"),
         ("class:header", version_suffix),
     )
     _fmt(
@@ -195,8 +195,7 @@ def _bottom_toolbar(session: ChatSession) -> FormattedText:
 
 
 _SLASH_COMMANDS: list[tuple[str, str]] = [
-    ("/exit",   "Exit (Ctrl-D also works)"),
-    ("/quit",   "Exit (alias)"),
+    ("/bye",    "Exit (Ctrl-D also works)"),
     ("/help",   "Show available commands"),
     ("/clear",  "Start a fresh session"),
     ("/save",   "Export transcript to wiki/explorations/"),
@@ -280,7 +279,7 @@ def _make_prompt_session(session: ChatSession, style: Style, use_color: bool, kb
         buf = event.current_buffer
         buf.start_completion()
 
-    history_path = kb_dir / ".openkb" / "chat_history"
+    history_path = kb_dir / ".openwiki" / "chat_history"
     return PromptSession(
         message=FormattedText([("class:prompt", ">>> ")]),
         style=style,
@@ -300,7 +299,7 @@ def _make_rich_console() -> Any:
 
 
 def _make_markdown(text: str) -> Any:
-    from openkb.agent._markdown import render
+    from openwiki.agent._markdown import render
 
     return render(text)
 
@@ -435,7 +434,7 @@ def _save_transcript(kb_dir: Path, session: ChatSession, name: str | None) -> Pa
 
 async def _run_add(arg: str, kb_dir: Path, style: Style) -> None:
     """Add a document or directory to the knowledge base from the chat REPL."""
-    from openkb.cli import add_single_file, SUPPORTED_EXTENSIONS
+    from openwiki.cli import add_single_file, SUPPORTED_EXTENSIONS
 
     target = Path(arg).expanduser()
     if not target.is_absolute():
@@ -483,8 +482,10 @@ async def _handle_slash(
     elif arg and arg[0] in ("'", '"'):
         arg = arg[1:]
 
-    if head in ("/exit", "/quit"):
-        _fmt(style, ("class:header", "Bye. Thanks for using OpenKB.\n\n"))
+    if head == "/bye":
+        if session.user_turns:
+            _fmt(style, ("class:slash.help", "Tip: /save <name> to save this transcript.\n"))
+        _fmt(style, ("class:header", "Bye. Thanks for using OpenWiki.\n\n"))
         return "exit"
 
     if head == "/help":
@@ -508,17 +509,17 @@ async def _handle_slash(
         return None
 
     if head == "/status":
-        from openkb.cli import print_status
+        from openwiki.cli import print_status
         print_status(kb_dir)
         return None
 
     if head == "/list":
-        from openkb.cli import print_list
+        from openwiki.cli import print_list
         print_list(kb_dir)
         return None
 
     if head == "/lint":
-        from openkb.cli import run_lint
+        from openwiki.cli import run_lint
         await run_lint(kb_dir)
         return None
 
@@ -544,12 +545,12 @@ async def run_chat(
     raw: bool = False,
 ) -> None:
     """Run the chat REPL against ``session`` until the user exits."""
-    from openkb.config import load_config
+    from openwiki.config import load_config
 
     use_color = _use_color(force_off=no_color)
     style = _build_style(use_color)
 
-    config = load_config(kb_dir / ".openkb" / "config.yaml")
+    config = load_config(kb_dir / ".openwiki" / "config.yaml")
     language = session.language or config.get("language", "en")
     wiki_root = str(kb_dir / "wiki")
     agent = build_query_agent(wiki_root, session.model, language=language)
@@ -569,13 +570,13 @@ async def run_chat(
         except KeyboardInterrupt:
             now = time.monotonic()
             if last_sigint and (now - last_sigint) < _SIGINT_EXIT_WINDOW:
-                _fmt(style, ("class:header", "\nBye. Thanks for using OpenKB.\n\n"))
+                _fmt(style, ("class:header", "\nBye. Thanks for using OpenWiki.\n\n"))
                 return
             last_sigint = now
             _fmt(style, ("class:header", "\n(Press Ctrl-C again to exit)\n"))
             continue
         except EOFError:
-            _fmt(style, ("class:header", "Bye. Thanks for using OpenKB.\n\n"))
+            _fmt(style, ("class:header", "Bye. Thanks for using OpenWiki.\n\n"))
             return
 
         user_input = (user_input or "").strip()

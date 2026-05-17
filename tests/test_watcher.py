@@ -1,11 +1,11 @@
-"""Tests for openkb.watcher (Task 12)."""
+"""Tests for openwiki.watcher (Task 12)."""
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from openkb.watcher import DebouncedHandler
+from openwiki.watcher import DebouncedHandler
 
 
 def _make_file_event(src_path: str, is_directory: bool = False):

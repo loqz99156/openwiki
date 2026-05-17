@@ -1,4 +1,4 @@
-"""OpenKB CLI — command-line interface for the knowledge base workflow."""
+"""OpenWiki CLI — command-line interface for the knowledge base workflow."""
 from __future__ import annotations
 
 # Silence import-time warnings (e.g. pydub's missing-ffmpeg warning emitted
@@ -25,10 +25,10 @@ import litellm
 litellm.suppress_debug_info = True
 from dotenv import load_dotenv
 
-from openkb.config import DEFAULT_CONFIG, load_config, save_config, load_global_config, register_kb
-from openkb.converter import convert_document
-from openkb.log import append_log
-from openkb.schema import AGENTS_MD
+from openwiki.config import DEFAULT_CONFIG, load_config, save_config, load_global_config, register_kb
+from openwiki.converter import convert_document
+from openwiki.log import append_log
+from openwiki.schema import AGENTS_MD
 
 # Suppress warnings after all imports — markitdown overrides filters at import time
 import warnings
@@ -43,7 +43,7 @@ def _setup_llm_key(kb_dir: Path | None = None) -> None:
     Load order (override=False, so first one wins):
     1. System environment variables (already set)
     2. KB-local .env  (kb_dir/.env)
-    3. Global .env    (~/.config/openkb/.env)
+    3. Global .env    (~/.config/openwiki/.env)
 
     Also propagates to provider-specific env vars (OPENAI_API_KEY, etc.)
     so that the Agents SDK litellm provider can pick them up.
@@ -53,7 +53,7 @@ def _setup_llm_key(kb_dir: Path | None = None) -> None:
         if env_file.exists():
             load_dotenv(env_file, override=False)
 
-    from openkb.config import GLOBAL_CONFIG_DIR
+    from openwiki.config import GLOBAL_CONFIG_DIR
     global_env = GLOBAL_CONFIG_DIR / ".env"
     if global_env.exists():
         load_dotenv(global_env, override=False)
@@ -104,15 +104,15 @@ def _display_type(raw_type: str) -> str:
 
 def _find_kb_dir(override: Path | None = None) -> Path | None:
     """Find the KB root: explicit override → walk up from cwd → global default_kb."""
-    # 0. Explicit override (--kb-dir or OPENKB_DIR)
+    # 0. Explicit override (--kb-dir or OPENWIKI_DIR)
     if override is not None:
-        if (override / ".openkb").is_dir():
+        if (override / ".openwiki").is_dir():
             return override
         return None
     # 1. Walk up from cwd
     current = Path.cwd().resolve()
     while True:
-        if (current / ".openkb").is_dir():
+        if (current / ".openwiki").is_dir():
             return current
         parent = current.parent
         if parent == current:
@@ -123,7 +123,7 @@ def _find_kb_dir(override: Path | None = None) -> Path | None:
     default = gc.get("default_kb")
     if default:
         p = Path(default)
-        if (p / ".openkb").is_dir():
+        if (p / ".openwiki").is_dir():
             return p
     return None
 
@@ -137,15 +137,15 @@ def add_single_file(file_path: Path, kb_dir: Path) -> None:
     3. If long doc: run PageIndex then compile_long_doc.
     4. Else: compile_short_doc.
     """
-    from openkb.agent.compiler import compile_long_doc, compile_short_doc
-    from openkb.state import HashRegistry
+    from openwiki.agent.compiler import compile_long_doc, compile_short_doc
+    from openwiki.state import HashRegistry
 
     logger = logging.getLogger(__name__)
-    openkb_dir = kb_dir / ".openkb"
-    config = load_config(openkb_dir / "config.yaml")
+    openwiki_dir = kb_dir / ".openwiki"
+    config = load_config(openwiki_dir / "config.yaml")
     _setup_llm_key(kb_dir)
     model: str = config.get("model", DEFAULT_CONFIG["model"])
-    registry = HashRegistry(openkb_dir / "hashes.json")
+    registry = HashRegistry(openwiki_dir / "hashes.json")
 
     # 2. Convert document
     click.echo(f"Adding: {file_path.name}")
@@ -166,7 +166,7 @@ def add_single_file(file_path: Path, kb_dir: Path) -> None:
     if result.is_long_doc:
         click.echo(f"  Long document detected — indexing with PageIndex...")
         try:
-            from openkb.indexer import index_long_document
+            from openwiki.indexer import index_long_document
             index_result = index_long_document(result.raw_path, kb_dir)
         except Exception as exc:
             click.echo(f"  [ERROR] Indexing failed: {exc}")
@@ -223,18 +223,18 @@ def add_single_file(file_path: Path, kb_dir: Path) -> None:
 @click.option("--kb-dir", "kb_dir_override", default=None, type=click.Path(exists=True, file_okay=False, resolve_path=True), help="Path to a KB root directory (overrides auto-detection).")
 @click.pass_context
 def cli(ctx, verbose, kb_dir_override):
-    """OpenKB — Karpathy's LLM Knowledge Base workflow, powered by PageIndex."""
+    """OpenWiki — Karpathy's LLM Knowledge Base workflow, powered by PageIndex."""
     logging.basicConfig(
         format="%(name)s %(levelname)s: %(message)s",
         level=logging.WARNING,
     )
     if verbose:
-        logging.getLogger("openkb").setLevel(logging.DEBUG)
+        logging.getLogger("openwiki").setLevel(logging.DEBUG)
     ctx.ensure_object(dict)
     if kb_dir_override:
         ctx.obj["kb_dir_override"] = Path(kb_dir_override)
     else:
-        env_kb = os.environ.get("OPENKB_DIR")
+        env_kb = os.environ.get("OPENWIKI_DIR")
         if env_kb:
             ctx.obj["kb_dir_override"] = Path(env_kb).resolve()
         else:
@@ -246,7 +246,7 @@ def cli(ctx, verbose, kb_dir_override):
 def use(path):
     """Set PATH as the default knowledge base."""
     target = Path(path).resolve()
-    if not (target / ".openkb").is_dir():
+    if not (target / ".openwiki").is_dir():
         click.echo(f"Not a knowledge base: {target}")
         return
     register_kb(target)
@@ -256,8 +256,8 @@ def use(path):
 @cli.command()
 def init():
     """Initialise a new knowledge base in the current directory."""
-    openkb_dir = Path(".openkb")
-    if openkb_dir.exists():
+    openwiki_dir = Path(".openwiki")
+    if openwiki_dir.exists():
         click.echo("Knowledge base already initialized.")
         return
 
@@ -288,20 +288,24 @@ def init():
     # Write wiki files
     Path("wiki/AGENTS.md").write_text(AGENTS_MD, encoding="utf-8")
     Path("wiki/index.md").write_text(
-        "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Explorations\n",
+        "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Explorations\n- [[explorations]]\n",
+        encoding="utf-8",
+    )
+    Path("wiki/explorations.md").write_text(
+        "# Explorations\n",
         encoding="utf-8",
     )
     Path("wiki/log.md").write_text("# Operations Log\n\n", encoding="utf-8")
 
-    # Create .openkb/ state directory
-    openkb_dir.mkdir()
+    # Create .openwiki/ state directory
+    openwiki_dir.mkdir()
     config = {
         "model": model,
         "language": DEFAULT_CONFIG["language"],
         "pageindex_threshold": DEFAULT_CONFIG["pageindex_threshold"],
     }
-    save_config(openkb_dir / "config.yaml", config)
-    (openkb_dir / "hashes.json").write_text(json.dumps({}), encoding="utf-8")
+    save_config(openwiki_dir / "config.yaml", config)
+    (openwiki_dir / "hashes.json").write_text(json.dumps({}), encoding="utf-8")
 
     # Write API key to KB-local .env (0600) if the user provided one
     if api_key:
@@ -326,7 +330,7 @@ def add(ctx, path):
     """Add a document or directory of documents at PATH to the knowledge base."""
     kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
     if kb_dir is None:
-        click.echo("No knowledge base found. Run `openkb init` first.")
+        click.echo("No knowledge base found. Run `openwiki init` first.")
         return
 
     target = Path(path)
@@ -370,13 +374,13 @@ def query(ctx, question, save, raw):
     """Query the knowledge base with QUESTION."""
     kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
     if kb_dir is None:
-        click.echo("No knowledge base found. Run `openkb init` first.")
+        click.echo("No knowledge base found. Run `openwiki init` first.")
         return
 
-    from openkb.agent.query import run_query
+    from openwiki.agent.query import run_query
 
-    openkb_dir = kb_dir / ".openkb"
-    config = load_config(openkb_dir / "config.yaml")
+    openwiki_dir = kb_dir / ".openwiki"
+    config = load_config(openwiki_dir / "config.yaml")
     _setup_llm_key(kb_dir)
     model: str = config.get("model", DEFAULT_CONFIG["model"])
 
@@ -431,10 +435,10 @@ def chat(ctx, resume, list_sessions_flag, delete_id, no_color, raw):
     """Start an interactive chat with the knowledge base."""
     kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
     if kb_dir is None:
-        click.echo("No knowledge base found. Run `openkb init` first.")
+        click.echo("No knowledge base found. Run `openwiki init` first.")
         return
 
-    from openkb.agent.chat_session import (
+    from openwiki.agent.chat_session import (
         ChatSession,
         delete_session,
         list_sessions,
@@ -457,7 +461,7 @@ def chat(ctx, resume, list_sessions_flag, delete_id, no_color, raw):
                 f"  {s['id']:<22} {s['turn_count']:<6} {rel:<12} {title}"
             )
         click.echo(
-            f"\n{len(sessions)} session(s) in {kb_dir / '.openkb' / 'chats'}"
+            f"\n{len(sessions)} session(s) in {kb_dir / '.openwiki' / 'chats'}"
         )
         return
 
@@ -476,8 +480,8 @@ def chat(ctx, resume, list_sessions_flag, delete_id, no_color, raw):
             click.echo(f"Could not delete session: {resolved}")
         return
 
-    openkb_dir = kb_dir / ".openkb"
-    config = load_config(openkb_dir / "config.yaml")
+    openwiki_dir = kb_dir / ".openwiki"
+    config = load_config(openwiki_dir / "config.yaml")
     _setup_llm_key(kb_dir)
 
     if resume is not None:
@@ -498,7 +502,7 @@ def chat(ctx, resume, list_sessions_flag, delete_id, no_color, raw):
         language: str = config.get("language", "en")
         session = ChatSession.new(kb_dir, model, language)
 
-    from openkb.agent.chat import run_chat
+    from openwiki.agent.chat import run_chat
 
     try:
         asyncio.run(run_chat(kb_dir, session, no_color=no_color, raw=raw))
@@ -512,10 +516,10 @@ def watch(ctx):
     """Watch the raw/ directory for new documents and process them automatically."""
     kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
     if kb_dir is None:
-        click.echo("No knowledge base found. Run `openkb init` first.")
+        click.echo("No knowledge base found. Run `openwiki init` first.")
         return
 
-    from openkb.watcher import watch_directory
+    from openwiki.watcher import watch_directory
 
     raw_dir = kb_dir / "raw"
     raw_dir.mkdir(exist_ok=True)
@@ -542,22 +546,22 @@ async def run_lint(kb_dir: Path) -> Path | None:
     Async because knowledge lint uses an LLM agent. Usable from CLI
     (via ``asyncio.run``) and directly from the chat REPL.
     """
-    from openkb.lint import run_structural_lint
-    from openkb.agent.linter import run_knowledge_lint
+    from openwiki.lint import run_structural_lint
+    from openwiki.agent.linter import run_knowledge_lint
 
-    openkb_dir = kb_dir / ".openkb"
+    openwiki_dir = kb_dir / ".openwiki"
 
     # Skip lint entirely when the KB has no indexed documents
-    hashes_file = openkb_dir / "hashes.json"
+    hashes_file = openwiki_dir / "hashes.json"
     if hashes_file.exists():
         hashes = json.loads(hashes_file.read_text(encoding="utf-8"))
     else:
         hashes = {}
     if not hashes:
-        click.echo("Nothing to lint — no documents indexed yet. Run `openkb add` first.")
+        click.echo("Nothing to lint — no documents indexed yet. Run `openwiki add` first.")
         return
 
-    config = load_config(openkb_dir / "config.yaml")
+    config = load_config(openwiki_dir / "config.yaml")
     _setup_llm_key(kb_dir)
     model: str = config.get("model", DEFAULT_CONFIG["model"])
 
@@ -594,15 +598,15 @@ def lint(ctx, fix):
         click.echo("Warning: --fix is not yet implemented. Running lint in report-only mode.")
     kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
     if kb_dir is None:
-        click.echo("No knowledge base found. Run `openkb init` first.")
+        click.echo("No knowledge base found. Run `openwiki init` first.")
         return
     asyncio.run(run_lint(kb_dir))
 
 
 def print_list(kb_dir: Path) -> None:
     """Print all documents in the knowledge base. Usable from CLI and chat REPL."""
-    openkb_dir = kb_dir / ".openkb"
-    hashes_file = openkb_dir / "hashes.json"
+    openwiki_dir = kb_dir / ".openwiki"
+    hashes_file = openwiki_dir / "hashes.json"
     if not hashes_file.exists():
         click.echo("No documents indexed yet.")
         return
@@ -659,7 +663,7 @@ def list_cmd(ctx):
     """List all documents in the knowledge base."""
     kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
     if kb_dir is None:
-        click.echo("No knowledge base found. Run `openkb init` first.")
+        click.echo("No knowledge base found. Run `openwiki init` first.")
         return
     print_list(kb_dir)
 
@@ -688,8 +692,8 @@ def print_status(kb_dir: Path) -> None:
         click.echo(f"  {'raw':<20} {raw_count:<10}")
 
     # Hash registry summary
-    openkb_dir = kb_dir / ".openkb"
-    hashes_file = openkb_dir / "hashes.json"
+    openwiki_dir = kb_dir / ".openwiki"
+    hashes_file = openwiki_dir / "hashes.json"
     if hashes_file.exists():
         hashes = json.loads(hashes_file.read_text(encoding="utf-8"))
         click.echo(f"\n  Total indexed: {len(hashes)} document(s)")
@@ -721,6 +725,6 @@ def status(ctx):
     """Show the current status of the knowledge base."""
     kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
     if kb_dir is None:
-        click.echo("No knowledge base found. Run `openkb init` first.")
+        click.echo("No knowledge base found. Run `openwiki init` first.")
         return
     print_status(kb_dir)

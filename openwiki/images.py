@@ -1,4 +1,4 @@
-"""Image extraction and copy utilities for the OpenKB converter pipeline."""
+"""Image extraction and copy utilities for the OpenWiki converter pipeline."""
 from __future__ import annotations
 
 import base64

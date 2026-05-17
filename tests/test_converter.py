@@ -1,4 +1,4 @@
-"""Tests for openkb.converter."""
+"""Tests for openwiki.converter."""
 from __future__ import annotations
 
 import shutil
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from openkb.converter import ConvertResult, convert_document, get_pdf_page_count
+from openwiki.converter import ConvertResult, convert_document, get_pdf_page_count
 
 
 # ---------------------------------------------------------------------------
@@ -22,7 +22,7 @@ class TestGetPdfPageCount:
         fake_doc.page_count = 5
         fake_doc.__enter__ = MagicMock(return_value=fake_doc)
         fake_doc.__exit__ = MagicMock(return_value=False)
-        with patch("openkb.converter.pymupdf.open", return_value=fake_doc):
+        with patch("openwiki.converter.pymupdf.open", return_value=fake_doc):
             count = get_pdf_page_count(tmp_path / "fake.pdf")
         assert count == 5
 
@@ -48,14 +48,14 @@ class TestConvertDocumentMarkdown:
 
     def test_md_duplicate_skipped(self, kb_dir):
         """Second call with same file returns skipped=True when hash is registered."""
-        from openkb.state import HashRegistry
+        from openwiki.state import HashRegistry
 
         src = kb_dir / "raw" / "notes.md"
         src.write_text("# Notes\n\nSome content here.", encoding="utf-8")
 
         result1 = convert_document(src, kb_dir)  # first call
         # Simulate CLI registering the hash after successful compilation
-        registry = HashRegistry(kb_dir / ".openkb" / "hashes.json")
+        registry = HashRegistry(kb_dir / ".openwiki" / "hashes.json")
         registry.add(result1.file_hash, {"name": src.name, "type": "md"})
 
         result2 = convert_document(src, kb_dir)  # second call
@@ -87,8 +87,8 @@ class TestConvertDocumentPdfShort:
         src.write_bytes(b"%PDF-1.4 fake content")
 
         with (
-            patch("openkb.converter.pymupdf.open") as mock_mu,
-            patch("openkb.converter.convert_pdf_with_images", return_value="# Short PDF\n\nConverted.") as mock_cpwi,
+            patch("openwiki.converter.pymupdf.open") as mock_mu,
+            patch("openwiki.converter.convert_pdf_with_images", return_value="# Short PDF\n\nConverted.") as mock_cpwi,
         ):
             fake_doc = MagicMock()
             fake_doc.page_count = 5  # below default threshold of 20
@@ -117,7 +117,7 @@ class TestConvertDocumentPdfLong:
         src.write_bytes(b"%PDF-1.4 fake long content")
 
         with (
-            patch("openkb.converter.pymupdf.open") as mock_mu,
+            patch("openwiki.converter.pymupdf.open") as mock_mu,
         ):
             fake_doc = MagicMock()
             fake_doc.page_count = 200  # above threshold

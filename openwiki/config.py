@@ -11,7 +11,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "pageindex_threshold": 20,
 }
 
-GLOBAL_CONFIG_DIR = Path.home() / ".config" / "openkb"
+GLOBAL_CONFIG_DIR = Path.home() / ".config" / "openwiki"
 GLOBAL_CONFIG_PATH = GLOBAL_CONFIG_DIR / "global.yaml"
 
 
@@ -36,7 +36,7 @@ def save_config(config_path: Path, config: dict) -> None:
 
 
 def load_global_config() -> dict[str, Any]:
-    """Load the global config from ~/.config/openkb/global.yaml."""
+    """Load the global config from ~/.config/openwiki/global.yaml."""
     if GLOBAL_CONFIG_PATH.exists():
         with GLOBAL_CONFIG_PATH.open("r", encoding="utf-8") as fh:
             return yaml.safe_load(fh) or {}
@@ -44,7 +44,7 @@ def load_global_config() -> dict[str, Any]:
 
 
 def save_global_config(config: dict[str, Any]) -> None:
-    """Save the global config to ~/.config/openkb/global.yaml."""
+    """Save the global config to ~/.config/openwiki/global.yaml."""
     GLOBAL_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     with GLOBAL_CONFIG_PATH.open("w", encoding="utf-8") as fh:
         yaml.safe_dump(config, fh, allow_unicode=True, sort_keys=True)

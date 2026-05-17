@@ -1,4 +1,4 @@
-"""Tests for openkb.agent.query (Task 11)."""
+"""Tests for openwiki.agent.query (Task 11)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from openkb.agent.query import build_query_agent, run_query
-from openkb.schema import SCHEMA_MD
+from openwiki.agent.query import build_query_agent, run_query
+from openwiki.schema import SCHEMA_MD
 
 
 class TestBuildQueryAgent:
@@ -44,12 +44,12 @@ class TestRunQuery:
     @pytest.mark.asyncio
     async def test_run_query_returns_final_output(self, tmp_path):
         (tmp_path / "wiki").mkdir()
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".openwiki").mkdir()
 
         mock_result = MagicMock()
         mock_result.final_output = "The answer is 42."
 
-        with patch("openkb.agent.query.Runner.run", new_callable=AsyncMock) as mock_run:
+        with patch("openwiki.agent.query.Runner.run", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = mock_result
             answer = await run_query("What is the answer?", tmp_path, "gpt-4o-mini")
 
@@ -58,7 +58,7 @@ class TestRunQuery:
     @pytest.mark.asyncio
     async def test_run_query_passes_question_to_agent(self, tmp_path):
         (tmp_path / "wiki").mkdir()
-        (tmp_path / ".openkb").mkdir()
+        (tmp_path / ".openwiki").mkdir()
 
         captured = {}
 
@@ -66,7 +66,7 @@ class TestRunQuery:
             captured["message"] = message
             return MagicMock(final_output="answer")
 
-        with patch("openkb.agent.query.Runner.run", side_effect=fake_run):
+        with patch("openwiki.agent.query.Runner.run", side_effect=fake_run):
             await run_query("How does attention work?", tmp_path, "gpt-4o-mini")
 
         assert "How does attention work?" in captured["message"]

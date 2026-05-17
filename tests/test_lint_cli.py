@@ -1,4 +1,4 @@
-"""Tests for the openkb lint CLI command."""
+"""Tests for the openwiki lint CLI command."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from openkb.cli import cli
+from openwiki.cli import cli
 
 
 def _setup_kb(tmp_path: Path) -> Path:
@@ -18,10 +18,10 @@ def _setup_kb(tmp_path: Path) -> Path:
     (kb_dir / "wiki" / "summaries").mkdir(parents=True)
     (kb_dir / "wiki" / "concepts").mkdir(parents=True)
     (kb_dir / "wiki" / "reports").mkdir(parents=True)
-    openkb_dir = kb_dir / ".openkb"
-    openkb_dir.mkdir()
-    (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
-    (openkb_dir / "hashes.json").write_text(json.dumps({}))
+    openwiki_dir = kb_dir / ".openwiki"
+    openwiki_dir.mkdir()
+    (openwiki_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
+    (openwiki_dir / "hashes.json").write_text(json.dumps({}))
     (kb_dir / "wiki" / "index.md").write_text(
         "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n"
     )
@@ -33,7 +33,7 @@ class TestLintCommand:
         """Lint on an empty KB (no indexed docs) should exit early."""
         kb_dir = _setup_kb(tmp_path)
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("openwiki.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["lint"])
         assert result.exit_code == 0
         assert "Nothing to lint" in result.output
@@ -45,9 +45,9 @@ class TestLintCommand:
     def test_lint_no_hashes_file_skips(self, tmp_path):
         """Lint should also skip when hashes.json doesn't exist."""
         kb_dir = _setup_kb(tmp_path)
-        (kb_dir / ".openkb" / "hashes.json").unlink()
+        (kb_dir / ".openwiki" / "hashes.json").unlink()
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("openwiki.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["lint"])
         assert result.exit_code == 0
         assert "Nothing to lint" in result.output
@@ -55,7 +55,7 @@ class TestLintCommand:
     def test_lint_no_kb(self, tmp_path):
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path), \
-             patch("openkb.cli._find_kb_dir", return_value=None):
+             patch("openwiki.cli._find_kb_dir", return_value=None):
             result = runner.invoke(cli, ["lint"])
             assert "No knowledge base found" in result.output
 
@@ -63,11 +63,11 @@ class TestLintCommand:
         """Lint should proceed when there are indexed documents."""
         kb_dir = _setup_kb(tmp_path)
         hashes = {"abc": {"name": "paper.pdf", "type": "pdf"}}
-        (kb_dir / ".openkb" / "hashes.json").write_text(json.dumps(hashes))
+        (kb_dir / ".openwiki" / "hashes.json").write_text(json.dumps(hashes))
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir), \
-             patch("openkb.cli._setup_llm_key"), \
-             patch("openkb.agent.linter.run_knowledge_lint", return_value="No issues."):
+        with patch("openwiki.cli._find_kb_dir", return_value=kb_dir), \
+             patch("openwiki.cli._setup_llm_key"), \
+             patch("openwiki.agent.linter.run_knowledge_lint", return_value="No issues."):
             result = runner.invoke(cli, ["lint"])
         assert result.exit_code == 0
         assert "Running structural lint" in result.output

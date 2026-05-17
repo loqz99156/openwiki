@@ -1,7 +1,7 @@
 import pytest
 import json
 from pathlib import Path
-from openkb.state import HashRegistry
+from openwiki.state import HashRegistry
 
 
 def test_empty_registry_is_known_false(tmp_path):

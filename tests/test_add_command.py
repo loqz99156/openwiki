@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from openkb.cli import SUPPORTED_EXTENSIONS, _find_kb_dir, cli
+from openwiki.cli import SUPPORTED_EXTENSIONS, _find_kb_dir, cli
 
 
 class TestSupportedExtensions:
@@ -29,15 +29,15 @@ class TestSupportedExtensions:
 
 
 class TestFindKbDir:
-    def test_finds_openkb_dir(self, tmp_path, monkeypatch):
-        (tmp_path / ".openkb").mkdir()
+    def test_finds_openwiki_dir(self, tmp_path, monkeypatch):
+        (tmp_path / ".openwiki").mkdir()
         monkeypatch.chdir(tmp_path)
         result = _find_kb_dir()
         assert result is not None
 
-    def test_returns_none_if_no_openkb(self, tmp_path, monkeypatch):
+    def test_returns_none_if_no_openwiki(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        with patch("openkb.cli.load_global_config", return_value={}):
+        with patch("openwiki.cli.load_global_config", return_value={}):
             result = _find_kb_dir()
             assert result is None
 
@@ -50,16 +50,16 @@ class TestAddCommand:
         (tmp_path / "wiki" / "summaries").mkdir(parents=True)
         (tmp_path / "wiki" / "concepts").mkdir(parents=True)
         (tmp_path / "wiki" / "reports").mkdir(parents=True)
-        openkb_dir = tmp_path / ".openkb"
-        openkb_dir.mkdir()
-        (openkb_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
-        (openkb_dir / "hashes.json").write_text(json.dumps({}))
+        openwiki_dir = tmp_path / ".openwiki"
+        openwiki_dir.mkdir()
+        (openwiki_dir / "config.yaml").write_text("model: gpt-4o-mini\n")
+        (openwiki_dir / "hashes.json").write_text(json.dumps({}))
         return tmp_path
 
     def test_add_missing_init(self, tmp_path):
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path), \
-             patch("openkb.cli._find_kb_dir", return_value=None):
+             patch("openwiki.cli._find_kb_dir", return_value=None):
             result = runner.invoke(cli, ["add", "somefile.pdf"])
             assert "No knowledge base found" in result.output
 
@@ -69,8 +69,8 @@ class TestAddCommand:
         doc.write_text("# Hello")
 
         runner = CliRunner()
-        with patch("openkb.cli.add_single_file") as mock_add, \
-             patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("openwiki.cli.add_single_file") as mock_add, \
+             patch("openwiki.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["add", str(doc)])
             mock_add.assert_called_once_with(doc, kb_dir)
 
@@ -83,8 +83,8 @@ class TestAddCommand:
         (docs_dir / "ignore.xyz").write_text("skip me")
 
         runner = CliRunner()
-        with patch("openkb.cli.add_single_file") as mock_add, \
-             patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("openwiki.cli.add_single_file") as mock_add, \
+             patch("openwiki.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["add", str(docs_dir)])
             # Should be called for .md and .txt but not .xyz
             assert mock_add.call_count == 2
@@ -99,7 +99,7 @@ class TestAddCommand:
         doc.write_text("content")
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("openwiki.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["add", str(doc)])
             assert "Unsupported file type" in result.output
 
@@ -107,7 +107,7 @@ class TestAddCommand:
         kb_dir = self._setup_kb(tmp_path)
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir):
+        with patch("openwiki.cli._find_kb_dir", return_value=kb_dir):
             result = runner.invoke(cli, ["add", str(tmp_path / "nonexistent.pdf")])
             assert "does not exist" in result.output
 
@@ -116,13 +116,13 @@ class TestAddCommand:
         doc = tmp_path / "test.md"
         doc.write_text("# Hello")
 
-        from openkb.converter import ConvertResult
+        from openwiki.converter import ConvertResult
         mock_result = ConvertResult(skipped=True)
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir), \
-             patch("openkb.cli.convert_document", return_value=mock_result) as mock_conv, \
-             patch("openkb.cli.asyncio.run") as mock_arun:
+        with patch("openwiki.cli._find_kb_dir", return_value=kb_dir), \
+             patch("openwiki.cli.convert_document", return_value=mock_result) as mock_conv, \
+             patch("openwiki.cli.asyncio.run") as mock_arun:
             result = runner.invoke(cli, ["add", str(doc)])
             assert "SKIP" in result.output
             mock_arun.assert_not_called()
@@ -135,7 +135,7 @@ class TestAddCommand:
         source_path = kb_dir / "wiki" / "sources" / "test.md"
         source_path.write_text("# Hello converted")
 
-        from openkb.converter import ConvertResult
+        from openwiki.converter import ConvertResult
         mock_result = ConvertResult(
             raw_path=kb_dir / "raw" / "test.md",
             source_path=source_path,
@@ -143,9 +143,9 @@ class TestAddCommand:
         )
 
         runner = CliRunner()
-        with patch("openkb.cli._find_kb_dir", return_value=kb_dir), \
-             patch("openkb.cli.convert_document", return_value=mock_result), \
-             patch("openkb.cli.asyncio.run") as mock_arun:
+        with patch("openwiki.cli._find_kb_dir", return_value=kb_dir), \
+             patch("openwiki.cli.convert_document", return_value=mock_result), \
+             patch("openwiki.cli.asyncio.run") as mock_arun:
             result = runner.invoke(cli, ["add", str(doc)])
             mock_arun.assert_called_once()
             assert "OK" in result.output

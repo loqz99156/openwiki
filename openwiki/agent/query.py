@@ -1,4 +1,4 @@
-"""Q&A agent for querying the OpenKB knowledge base."""
+"""Q&A agent for querying the OpenWiki knowledge base."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,19 +6,20 @@ from pathlib import Path
 from agents import Agent, Runner, function_tool
 
 from agents import ToolOutputImage, ToolOutputText
-from openkb.agent.tools import get_wiki_page_content, read_wiki_file, read_wiki_image
+from openwiki.agent.tools import get_wiki_page_content, read_wiki_file, read_wiki_image
 
 MAX_TURNS = 50
-from openkb.schema import get_agents_md
+from openwiki.schema import get_agents_md
 
 _QUERY_INSTRUCTIONS_TEMPLATE = """\
-You are OpenKB, a knowledge-base Q&A agent. You answer questions by searching the wiki.
+You are OpenWiki, a knowledge-base Q&A agent. You answer questions by searching the wiki.
 
 {schema_md}
 
 ## Search strategy
 1. Read index.md to see all documents and concepts with brief summaries.
    Each document is marked (short) or (pageindex) to indicate its type.
+   Also read explorations.md to see all saved explorations.
 2. Read relevant summary pages (summaries/) for document overviews.
    Summaries may omit details — if you need more, follow the summary's
    `full_text` frontmatter field to the source (see step 4).
@@ -115,10 +116,10 @@ async def run_query(
     import sys
     from agents import RawResponsesStreamEvent, RunItemStreamEvent, ItemHelpers
     from openai.types.responses import ResponseTextDeltaEvent
-    from openkb.config import load_config
+    from openwiki.config import load_config
 
-    openkb_dir = kb_dir / ".openkb"
-    config = load_config(openkb_dir / "config.yaml")
+    openwiki_dir = kb_dir / ".openwiki"
+    config = load_config(openwiki_dir / "config.yaml")
     language: str = config.get("language", "en")
 
     wiki_root = str(kb_dir / "wiki")
@@ -132,7 +133,7 @@ async def run_query(
     import os
     use_color = sys.stdout.isatty() and not os.environ.get("NO_COLOR", "")
 
-    from openkb.agent.chat import (
+    from openwiki.agent.chat import (
         _build_style,
         _fmt,
         _format_tool_line,

@@ -1,11 +1,11 @@
-"""Tests for openkb.lint (Task 13)."""
+"""Tests for openwiki.lint (Task 13)."""
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from openkb.lint import (
+from openwiki.lint import (
     check_index_sync,
     find_broken_links,
     find_missing_entries,

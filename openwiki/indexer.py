@@ -11,8 +11,8 @@ import os
 
 from pageindex import IndexConfig, PageIndexClient
 
-from openkb.config import load_config
-from openkb.tree_renderer import render_summary_md
+from openwiki.config import load_config
+from openwiki.tree_renderer import render_summary_md
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +28,8 @@ class IndexResult:
 
 def index_long_document(pdf_path: Path, kb_dir: Path) -> IndexResult:
     """Index a long PDF document using PageIndex and write wiki pages."""
-    openkb_dir = kb_dir / ".openkb"
-    config = load_config(openkb_dir / "config.yaml")
+    openwiki_dir = kb_dir / ".openwiki"
+    config = load_config(openwiki_dir / "config.yaml")
 
     model: str = config.get("model", "gpt-5.4")
     pageindex_api_key = os.environ.get("PAGEINDEX_API_KEY", "")
@@ -43,7 +43,7 @@ def index_long_document(pdf_path: Path, kb_dir: Path) -> IndexResult:
     client = PageIndexClient(
         api_key=pageindex_api_key or None,
         model=model,
-        storage_path=str(openkb_dir),
+        storage_path=str(openwiki_dir),
         index_config=index_config,
     )
     col = client.collection()
@@ -82,13 +82,13 @@ def index_long_document(pdf_path: Path, kb_dir: Path) -> IndexResult:
     sources_dir.mkdir(parents=True, exist_ok=True)
     images_dir = sources_dir / "images" / pdf_path.stem
 
-    from openkb.images import convert_pdf_to_pages
+    from openwiki.images import convert_pdf_to_pages
 
     all_pages: list = []
     if pageindex_api_key:
         # Cloud mode: fetch OCR'd markdown from PageIndex. get_page_content
         # requires a page range, so pass "1-N".
-        from openkb.converter import get_pdf_page_count
+        from openwiki.converter import get_pdf_page_count
         page_count = get_pdf_page_count(pdf_path)
         try:
             all_pages = col.get_page_content(doc_id, f"1-{page_count}")

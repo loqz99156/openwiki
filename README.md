@@ -1,220 +1,311 @@
 <div align="center">
 
-<a href="https://openkb.ai">
-  <img src="https://docs.pageindex.ai/images/openkb.png" alt="OpenKB (by PageIndex)" />
-</a>
+# OpenWiki — 开放 LLM 知识库
 
-# OpenKB — Open LLM Knowledge Base
-
-<p align="center"><i>Scale to long documents&nbsp; • &nbsp;Reasoning-based retrieval&nbsp; • &nbsp;Native multi-modality&nbsp; • &nbsp;No Vector DB</i></p>
+<p align="center"><i>支持长文档处理&nbsp; • &nbsp;基于推理的检索&nbsp; • &nbsp;原生多模态&nbsp; • &nbsp;无需向量数据库</i></p>
 
 </div>
 
----
+***
 
-# 📑 What is OpenKB
+# 📑 什么是 OpenWiki
 
-**OpenKB (Open Knowledge Base)** is an open-source system (in CLI) that compiles raw documents into a structured, interlinked wiki-style knowledge base using LLMs, powered by [**PageIndex**](https://github.com/VectifyAI/PageIndex) for vectorless long document retrieval.
+**OpenWiki（开放知识库）** 是一个开源系统（命令行工具），它利用 LLM 将原始文档编译成结构化的、相互关联的 Wiki 风格知识库，由 **[PageIndex](https://github.com/VectifyAI/PageIndex)** 提供无向量长文档检索能力。
 
-The idea is based on a [concept](https://x.com/karpathy/status/2039805659525644595) described by Andrej Karpathy: LLMs generate summaries, concept pages, and cross-references, all maintained automatically. Knowledge compounds over time instead of being re-derived on every query.
+这个想法源于 Andrej Karpathy 提出的一个[概念](https://x.com/karpathy/status/2039805659525644595)：LLM 自动生成摘要、概念页面和交叉引用。知识会随时间不断累积，而不是每次查询时重新推导。
 
-### Why not traditional RAG?
+### 为什么不是传统的 RAG？
 
-Traditional RAG rediscovers knowledge from scratch on every query. Nothing accumulates. OpenKB compiles knowledge once into a persistent wiki, then keeps it current. Cross-references already exist. Contradictions are flagged. Synthesis reflects everything consumed.
+传统的 RAG 每次查询都从头开始重新发现知识，没有任何积累。OpenWiki 将知识一次性编译为持久的 Wiki，然后保持其更新。交叉引用已经存在，矛盾之处会被标记，综合结果反映所有已消费的内容。
 
-### Features
+### 功能特性
 
-- **Broad format support** — PDF, Word, Markdown, PowerPoint, HTML, Excel, text, and more via markitdown
-- **Scale to long documents** — Long and complex documents are handled via [PageIndex](https://github.com/VectifyAI/PageIndex) tree indexing, enabling accurate, vectorless long-context retrieval
-- **Native multi-modality** — Retrieves and understands figures, tables, and images, not just text
-- **Compiled Wiki** — LLM manages and compiles your documents into summaries, concept pages, and cross-links, all kept in sync
-- **Query** — Ask questions (one-off) against your wiki. The LLM navigates your compiled knowledge to answer
-- **Interactive Chat** — Multi-turn conversations with persisted sessions you can resume across runs
-- **Lint** — Health checks find contradictions, gaps, orphans, and stale content
-- **Watch mode** — Drop files into `raw/`, wiki updates automatically
-- **Obsidian compatible** — Wiki is plain `.md` files with `[[wikilinks]]`. Open in Obsidian for graph view and browsing
+* **广泛的格式支持** — PDF、Word、Markdown、PowerPoint、HTML、Excel、文本等，通过 markitdown 实现
 
-# 🚀 Getting Started
+* **支持长文档** — 通过 [PageIndex](https://github.com/VectifyAI/PageIndex) 树索引处理长而复杂的文档，实现准确的无向量长上下文检索
 
-### Install
+* **原生多模态** — 检索和理解图表、表格和图像，而不仅仅是文本
 
-```bash
-pip install openkb
-```
+* **编译 Wiki** — LLM 管理并将你的文档编译成摘要、概念页面和交叉链接，所有内容保持同步
+
+* **查询** — 对你的 Wiki 提出一次性问题。LLM 导航你编译的知识来进行回答
+
+* **交互式聊天** — 多轮对话，支持持久化会话，可在不同运行间恢复
+
+* **检查** — 健康检查发现矛盾、缺口、孤立内容和过时内容
+
+* **监听模式** — 将文件放入 `raw/`，Wiki 自动更新
+
+* **兼容 Obsidian** — Wiki 是纯 `.md` 文件，使用 `[[wikilinks]]`。在 Obsidian 中打开可查看图谱视图和浏览
+
+# 🚀 快速开始
+
+### 使用方式
+
+将本仓库放在本地后，先运行安装脚本。安装脚本会创建 `my-wiki/`，它就是你的 **Obsidian vault / OpenWiki 知识库根目录**。随后在 Obsidian 中打开 `my-wiki/`，并通过 Claude Code 插件使用 `.claude/commands/` 提供的斜杠命令。
 
 <details>
-<summary><i>Other install options</i></summary>
+<summary><i>从源码准备项目</i></summary>
 
-- **Latest from GitHub:**
+```bash
+git clone <repository-url>
+cd OpenWiki
 
-  ```bash
-  pip install git+https://github.com/VectifyAI/OpenKB.git
-  ```
+# macOS / Linux 终端
+bash install.sh
 
-- **Install from source** (editable, for development):
+# macOS 双击运行
+# 双击 install.command
 
-  ```bash
-  git clone https://github.com/VectifyAI/OpenKB.git
-  cd OpenKB
-  pip install -e .
-  ```
+# Windows PowerShell
+# .\install.ps1
+
+# Windows 双击运行
+# 双击 install.bat
+```
+
+安装脚本会执行开发安装，并创建独立知识库目录 `my-wiki/`。`my-wiki/` 用作 Obsidian vault；脚本会在其中放入隐藏的 `.claude/commands/`，供 Obsidian 里的 Claude Code 插件加载 `/init`、`/add`、`/query` 等命令。
 
 </details>
 
-### Quick Start
+### 快速上手
 
-```bash
-# 1. Create a directory for your knowledge base
-mkdir my-kb && cd my-kb
+安装后会得到独立的 `my-wiki/` 目录。把 `my-wiki/` 作为 Obsidian vault 打开，然后在 Obsidian 的 Claude Code 插件中运行 `/init` 初始化知识库：
 
-# 2. Initialize the knowledge base
-openkb init
+```text
+# 1. 用 Obsidian 打开 my-wiki/ 作为 vault
 
-# 3. Add documents
-openkb add paper.pdf
-openkb add ~/papers/  # Add a whole directory
+# 2. 在 Obsidian 的 Claude Code 插件中初始化当前 vault
+/init
 
-# 4. Ask a question
-openkb query "What are the main findings?"
+# 3. 把文档放进 raw/，然后处理所有未索引的新文件
+/add
 
-# 5. Or chat interactively
-openkb chat
+# 4. 也可以直接添加指定文件或目录
+/add paper.pdf
+/add ~/papers/
+
+# 5. 向知识库提问
+/query 主要发现是什么？
+
+# 6. 进入持续对话模式
+/chat
+
+# 7. 保存最近一次问答
+/save 主要发现
+
+# 8. 退出知识库对话模式
+/bye
 ```
 
-### Set up your LLM
+初始化后的 vault 结构：
 
-OpenKB comes with [multi-LLM support](https://docs.litellm.ai/docs/providers) (e.g., OpenAI, Claude, Gemini) via [LiteLLM](https://github.com/BerriAI/litellm) (pinned to a [safe version](https://docs.litellm.ai/blog/security-update-march-2026)).
+```text
+my-wiki/
+  .claude/              Claude Code 插件命令（隐藏）
+    commands/
+  .openwiki/            OpenWiki 状态（隐藏）
+  raw/                  原始资料
+  wiki/                 Obsidian 中浏览的知识库内容
+```
 
-Set your model during `openkb init`, or in [`.openkb/config.yaml`](#configuration), using `provider/model` LiteLLM format (like `anthropic/claude-sonnet-4-6`). OpenAI models can omit the prefix (like `gpt-5.4`).
+### 配置你的 LLM
 
-Create a `.env` file with your LLM API key:
+OpenWiki 通过 [LiteLLM](https://github.com/BerriAI/litellm)（固定到[安全版本](https://docs.litellm.ai/blog/security-update-march-2026)）支持[多种 LLM](https://docs.litellm.ai/docs/providers)（例如 OpenAI、Claude、Gemini）。
+
+`/init` 会提示你填写模型，使用 `provider/model` 的 LiteLLM 格式（如 `anthropic/claude-sonnet-4-6`）。OpenAI 模型可以省略前缀（如 `gpt-5.4-mini`）。
+
+初始化时也可以输入 LLM API Key，OpenWiki 会将它保存到知识库本地 `.env`：
 
 ```bash
 LLM_API_KEY=your_llm_api_key
 ```
 
-# 🧩 How OpenKB Works
+如果初始化时跳过了 API Key，之后可以手动把上面的内容写入知识库目录下的 `.env`，也可以写入全局配置文件 `~/.config/openwiki/.env`，或在 shell 中导出 `LLM_API_KEY`。
 
-### Architecture
+# 🧩 OpenWiki 工作原理
+
+### 架构
 
 ```
-raw/                              You drop files here
+raw/                              你在此处放入文件
  │
- ├─ Short docs ──→ markitdown ──→ LLM reads full text
+ ├─ 短文档 ──→ markitdown ──→ LLM 读取全文
  │                                     │
- ├─ Long PDFs ──→ PageIndex ────→ LLM reads document trees
+ ├─ 长 PDF ──→ PageIndex ────→ LLM 读取文档树
  │                                     │
  │                                     ▼
- │                         Wiki Compilation (using LLM)
+ │                          Wiki 编译（使用 LLM）
  │                                     │
  ▼                                     ▼
 wiki/
- ├── index.md            Knowledge base overview
- ├── log.md              Operations timeline
- ├── AGENTS.md           Wiki schema (LLM instructions)
- ├── sources/            Full-text conversions
- ├── summaries/          Per-document summaries
- ├── concepts/           Cross-document synthesis ← the good stuff
- ├── explorations/       Saved query results
- └── reports/            Lint reports
+ ├── index.md            知识库概览
+ ├── log.md              操作时间线
+ ├── AGENTS.md           Wiki 模式（LLM 指令）
+ ├── sources/            全文转换
+ ├── summaries/          每个文档的摘要
+ ├── concepts/           跨文档综合 ← 核心内容
+ ├── explorations/       保存的查询结果
+ └── reports/            检查报告
 ```
 
-### Short vs. Long Document Handling
+### 短文档 vs 长文档处理
 
-| | Short documents | Long documents (PDF ≥ 20 pages) |
-|---|---|---|
-| **Convert** | markitdown → Markdown | PageIndex → tree index + summaries |
-| **Images** | Extracted inline (pymupdf) | Extracted by PageIndex |
-| **LLM reads** | Full text | Document trees |
-| **Result** | summary + concepts | summary + concepts |
+| <br />     | 短文档                   | 长文档（PDF ≥ 20 页）      |
+| ---------- | --------------------- | -------------------- |
+| **转换**     | markitdown → Markdown | PageIndex → 树索引 + 摘要 |
+| **图像**     | 内联提取（pymupdf）         | 由 PageIndex 提取       |
+| **LLM 读取** | 全文                    | 文档树                  |
+| **结果**     | 摘要 + 概念               | 摘要 + 概念              |
 
-Short docs are read in full by the LLM. Long PDFs are indexed by PageIndex into a hierarchical tree with summaries. The LLM reads the tree instead of the full text, enabling better retrieval from long documents.
+短文档由 LLM 完整读取。长 PDF 由 PageIndex 索引为包含摘要的分层树。LLM 读取树而非全文，从而实现对长文档更好的检索。
 
-### Knowledge Compilation
+### 知识编译
 
-When you add a document, the LLM:
+当你添加文档时，LLM 会：
 
-1. Generates a **summary** page
-2. Reads existing **concept** pages
-3. Creates or updates concepts with cross-document synthesis
-4. Updates the **index** and **log**
+1. 生成一个**摘要**页面
+2. 读取现有的**概念**页面
+3. 创建或更新概念，进行跨文档综合
+4. 更新**索引**和**日志**
 
-A single source might touch 10-15 wiki pages. Knowledge accumulates: each document enriches the existing wiki rather than sitting in isolation.
+单个源文档可能涉及 10-15 个 Wiki 页面。知识不断积累：每个文档都丰富现有的 Wiki，而不是孤立存在。
 
-# ⚙️ Usage
+# ⚙️ 使用方法
 
-### Commands
+### 命令
 
-| Command | Description |
-|---|---|
-| `openkb init` | Initialize a new knowledge base (interactive) |
-| <code>openkb&nbsp;add&nbsp;&lt;file_or_dir&gt;</code> | Add documents and compile to wiki |
-| <code>openkb&nbsp;query&nbsp;"question"</code> | Ask a question over the knowledge base (use `--save` to save the answer to `wiki/explorations/`) |
-| `openkb chat` | Start an interactive multi-turn chat (use `--resume`, `--list`, `--delete` to manage sessions) |
-| `openkb watch` | Watch `raw/` and auto-compile new files |
-| `openkb lint` | Run structural + knowledge health checks |
-| `openkb list` | List indexed documents and concepts |
-| `openkb status` | Show knowledge base stats |
+| 命令                | 描述                                      |
+| ----------------- | --------------------------------------- |
+| `/init`           | 在独立目录中初始化一个新的知识库（交互式）                |
+| `/add [路径]`      | 添加指定文件/目录；不带路径时处理 `raw/` 中未索引的新文件    |
+| `/query <问题>`    | 对知识库提问；回答后可用 `/save` 保存到 `wiki/explorations/` |
+| `/chat`           | 进入由 Claude 直接管理的多轮知识库对话模式              |
+| `/save [名称]`     | 保存最近一次问答到 `wiki/explorations/`            |
+| `/bye`            | 退出知识库对话模式，回到普通 Claude Code 交互          |
 
-<!-- | `openkb lint --fix` | Auto-fix what it can | -->
+### 常见工作流
 
-### Interactive Chat
+#### 创建并使用一个知识库
 
-`openkb chat` opens an interactive chat session over your wiki knowledge base. Unlike the one-shot `openkb query`, each turn carries the conversation history, so you can dig into a topic without re-typing context.
+安装后用 Obsidian 打开 `my-wiki/` 作为 vault，再在 Claude Code 插件中运行 `/init` 初始化当前 vault：
 
-```bash
-openkb chat                       # start a new session
-openkb chat --resume              # resume the most recent session
-openkb chat --resume 20260411     # resume by id (unique prefix works)
-openkb chat --list                # list all sessions
-openkb chat --delete <id>         # delete a session
+```text
+/init
 ```
 
-Inside a chat, type `/` to access slash commands (Tab to complete):
+安装脚本会先准备：
 
-- `/help` — list available commands
-- `/status` — show knowledge base status
-- `/list` — list all documents
-- `/add <path>` — add a document or directory without leaving the chat
-- `/save [name]` — export the transcript to `wiki/explorations/`
-- `/clear` — start a fresh session (the current one stays on disk)
-- `/lint` — run knowledge base lint
-- `/exit` — exit (Ctrl-D also works)
+```text
+.claude/              Claude Code 插件命令（隐藏）
+  commands/
+```
 
-### Configuration
+`/init` 会继续创建：
 
-Settings are initialized by `openkb init`, and stored in `.openkb/config.yaml`:
+```text
+.openwiki/           本地配置、哈希注册表、会话状态（隐藏）
+raw/                 原始文档
+wiki/                可阅读、可编辑的 Markdown Wiki
+```
+
+#### 添加单个文件、整个目录，或处理 raw/ 中的新文件
+
+```text
+/add paper.pdf
+/add notes.md
+/add ~/Documents/research
+```
+
+也可以先把文件放进 `raw/`，再运行：
+
+```text
+/add
+```
+
+添加文档时，OpenWiki 会把原始文件保存在 `raw/`，转换或索引内容，然后更新 `wiki/summaries/`、`wiki/concepts/` 和 `wiki/index.md`。
+
+#### 提问并保存结果
+
+```text
+/query 这批论文的共同结论是什么？
+/save common-findings
+```
+
+`/query` 会直接检索 `wiki/index.md`、摘要页、概念页和必要的源文件来回答。`/save` 会把最近一次问答保存到 `wiki/explorations/`，适合沉淀一次探索结果。
+
+#### 进入持续对话模式
+
+```text
+/chat
+```
+
+在对话模式中可以连续追问，也可以使用：
+
+```text
+/add <路径>
+/save <名称>
+/bye
+```
+
+`/bye` 只退出 OpenWiki 对话模式，不会清空 Claude Code 的全局上下文。
+
+### 交互式聊天
+
+`/chat` 会进入基于当前 Wiki 知识库的对话模式。与一次性 `/query` 不同，对话模式会在当前 Claude Code 会话中保留临时问答上下文，适合围绕同一主题连续追问。
+
+```text
+/chat          # 进入知识库对话模式
+/save 名称     # 保存最近一次问答
+/bye           # 退出知识库对话模式
+```
+
+对话模式中可用的 OpenWiki 命令：
+
+* `/add <路径>` — 在不离开对话的情况下添加文档或目录
+
+* `/save [名称]` — 将最近问答保存到 `wiki/explorations/`
+
+* `/bye` — 退出 OpenWiki 对话模式
+
+如果要做一次性提问，也可以退出对话模式后使用 `/query <问题>`。
+
+### 配置
+
+设置由 `/init` 初始化，存储在当前 Obsidian vault 的 `.openwiki/config.yaml` 中；按默认流程也就是 `my-wiki/.openwiki/config.yaml`：
 
 ```yaml
-model: gpt-5.4                   # LLM model (any LiteLLM-supported provider)
-language: en                     # Wiki output language
-pageindex_threshold: 20          # PDF pages threshold for PageIndex
+model: gpt-5.4                   # LLM 模型（任何 LiteLLM 支持的提供商）
+language: zh                     # Wiki 输出语言
+pageindex_threshold: 20          # PageIndex 的 PDF 页数阈值
 ```
 
-Model names use `provider/model` LiteLLM [format](https://docs.litellm.ai/docs/providers) (OpenAI models can omit the prefix):
+模型名称使用 `provider/model` 的 LiteLLM [格式](https://docs.litellm.ai/docs/providers)（OpenAI 模型可以省略前缀）：
 
-| Provider | Model example |
-|---|---|
-| OpenAI | `gpt-5.4` |
-| Anthropic | `anthropic/claude-sonnet-4-6` |
-| Gemini | `gemini/gemini-3.1-pro-preview` |
+| 提供商       | 模型示例                            |
+| --------- | ------------------------------- |
+| OpenAI    | `gpt-5.4`                       |
+| Anthropic | `anthropic/claude-sonnet-4-6`   |
+| Gemini    | `gemini/gemini-3.1-pro-preview` |
 
-### PageIndex Integration
+### PageIndex 集成
 
-Long documents are challenging for LLMs due to context limits, context rot, and summarization loss.
-[PageIndex](https://github.com/VectifyAI/PageIndex) solves this with vectorless, reasoning-based retrieval — building a hierarchical tree index that lets LLMs reason over the index for context-aware retrieval.
+长文档对 LLM 来说具有挑战性，原因在于上下文限制、上下文退化以及摘要丢失。
+[PageIndex](https://github.com/VectifyAI/PageIndex) 通过无向量的、基于推理的检索解决了这个问题——构建一个分层树索引，让 LLM 能够基于索引进行推理，实现上下文感知的检索。
 
-PageIndex runs locally by default using the [open-source version](https://github.com/VectifyAI/PageIndex), with no external dependencies required.
+PageIndex 默认使用[开源版本](https://github.com/VectifyAI/PageIndex)在本地运行，无需外部依赖。
 
-#### Optional: Cloud Support
+#### 可选：云端支持
 
-For large or complex PDFs, [PageIndex Cloud](https://docs.pageindex.ai/) can be used to access additional capabilities, including:
+对于大型或复杂 PDF，可以使用 [PageIndex Cloud](https://docs.pageindex.ai/) 获取额外功能，包括：
 
-- OCR support for scanned PDFs (via hosted VLM models)
-- Faster structure generation
-- Scalable indexing for large documents
+* 支持扫描 PDF 的 OCR（通过托管的 VLM 模型）
 
-Set `PAGEINDEX_API_KEY` in your `.env` to enable cloud features:
+* 更快的结构生成
+
+* 面向大型文档的可扩展索引
+
+在你的 `.env` 中设置 `PAGEINDEX_API_KEY` 以启用云功能：
 
 ```
 PAGEINDEX_API_KEY=your_pageindex_api_key
@@ -222,64 +313,128 @@ PAGEINDEX_API_KEY=your_pageindex_api_key
 
 ### AGENTS.md
 
-The `wiki/AGENTS.md` file defines wiki structure and conventions. It's the LLM's instruction manual for maintaining the wiki. Customize it to change how your wiki is organized.
+`wiki/AGENTS.md` 文件定义了 Wiki 的结构和约定。它是 LLM 维护 Wiki 的操作手册。自定义它来改变你 Wiki 的组织方式。
 
-At runtime, the LLM reads `AGENTS.md` from disk, so your edits take effect immediately.
+运行时，LLM 从磁盘读取 `AGENTS.md`，因此你的编辑会立即生效。
 
-### Using with Obsidian
+### 与 Obsidian 配合使用
 
-OpenKB's wiki is a directory of Markdown files with `[[wikilinks]]`. Obsidian renders it natively.
+OpenWiki 的 Wiki 是一个包含 `[[wikilinks]]` 的 Markdown 文件目录。Obsidian 原生支持渲染。
 
-1. Open `wiki/` as an Obsidian vault
-2. Browse summaries, concepts, and explorations
-3. Use graph view to see knowledge connections
-4. Use Obsidian Web Clipper to add web articles to `raw/`
+1. 将 `wiki/` 作为 Obsidian 库打开
+2. 浏览摘要、概念和探索记录
+3. 使用图谱视图查看知识关联
+4. 使用 Obsidian Web Clipper 将网页文章添加到 `raw/`
 
-# 🧭 Learn More
+# 🧭 了解更多
 
-### Compared to Karpathy's Approach
+### 与 Karpathy 方法的对比
 
-| | Karpathy's workflow | OpenKB |
-|---|---|---|
-| Short documents | LLM reads directly | markitdown → LLM reads |
-| Long documents | Context limits, context rot | PageIndex tree index |
-| Supported formats | Web clipper → .md | PDF, Word, PPT, Excel, HTML, text, CSV, .md |
-| Wiki compilation | LLM agent | LLM agent (same) |
-| Q&A | Query over wiki | Wiki + PageIndex retrieval |
+| <br />  | Karpathy 的工作流     | OpenWiki                             |
+| ------- | ----------------- | ---------------------------------- |
+| 短文档     | LLM 直接读取          | markitdown → LLM 读取                |
+| 长文档     | 上下文限制、上下文退化       | PageIndex 树索引                      |
+| 支持的格式   | Web clipper → .md | PDF、Word、PPT、Excel、HTML、文本、CSV、.md |
+| Wiki 编译 | LLM 代理            | LLM 代理（相同）                         |
+| 问答      | 基于 Wiki 查询        | Wiki + PageIndex 检索                |
 
-### The Stack
+### 技术栈
 
-- [PageIndex](https://github.com/VectifyAI/PageIndex) — Vectorless, reasoning-based document indexing and retrieval
-- [markitdown](https://github.com/microsoft/markitdown) — Universal file-to-markdown conversion
-- [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) — Agent framework (supports non-OpenAI models via LiteLLM)
-- [LiteLLM](https://github.com/BerriAI/litellm) — Multi-provider LLM gateway
-- [Click](https://click.palletsprojects.com/) — CLI framework
-- [watchdog](https://github.com/gorakhargosh/watchdog) — Filesystem monitoring
+* [PageIndex](https://github.com/VectifyAI/PageIndex) — 无向量、基于推理的文档索引和检索
 
-### Roadmap
+* [markitdown](https://github.com/microsoft/markitdown) — 通用文件到 Markdown 转换
 
-- [ ] Extend long document handling to non-PDF formats
-- [ ] Scale to large document collections with nested folder support
-- [ ] Hierarchical concept (topic) indexing for massive knowledge bases
-- [ ] Database-backed storage engine
-- [ ] Web UI for browsing and managing wikis
+* [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) — 代理框架（通过 LiteLLM 支持非 OpenAI 模型）
 
-### Contributing
+* [LiteLLM](https://github.com/BerriAI/litellm) — 多提供商 LLM 网关
 
-Contributions are welcome! Please submit a pull request, or open an [issue](https://github.com/VectifyAI/OpenKB/issues) for bugs or feature requests. For larger changes, consider opening an issue first to discuss the approach.
+* [Click](https://click.palletsprojects.com/) — CLI 框架
 
-### License
+* [watchdog](https://github.com/gorakhargosh/watchdog) — 文件系统监控
 
-Apache 2.0. See [LICENSE](LICENSE).
+### 路线图
 
-### Support Us
+* [ ] 将长文档处理扩展到非 PDF 格式
 
-If you find OpenKB useful, please give us a star 🌟 — and check out [PageIndex](https://github.com/VectifyAI/PageIndex) too!  
+* [ ] 支持嵌套文件夹，扩展到大型文档集合
+
+* [ ] 面向海量知识库的分层概念（主题）索引
+
+* [ ] 基于数据库的存储引擎
+
+* [ ] 用于浏览和管理 Wiki 的 Web 界面
+
+### 发布流程
+
+发布前先确认工作区干净，并运行测试：
+
+```bash
+git status
+python3 -m pytest tests
+```
+
+如果本机没有打包工具，先安装：
+
+```bash
+python3 -m pip install build twine
+```
+
+构建发布产物：
+
+```bash
+rm -rf dist/
+python3 -m build
+```
+
+构建完成后，`dist/` 中应该出现类似文件：
+
+```text
+dist/openwiki-0.1.3.tar.gz
+dist/openwiki-0.1.3-py3-none-any.whl
+```
+
+不要发布 `openkb-*` 产物。如果文件名仍是 `openkb-*`，说明 `pyproject.toml` 或包目录改名不完整。
+
+发布到 TestPyPI 做预演：
+
+```bash
+python3 -m twine upload --repository testpypi dist/*
+```
+
+正式发布到 PyPI：
+
+```bash
+python3 -m twine upload dist/*
+```
+
+发布后打 tag 并推送：
+
+```bash
+git tag v0.1.3
+git push origin v0.1.3
+```
+
+如果同时维护 GitHub Release，用同一个 tag 创建 release，并在说明中列出：
+
+* 包名已改为 `openwiki`
+* 状态目录已改为 `.openwiki/`
+
+### 贡献
+
+欢迎贡献！请提交 Pull Request，或为 Bug 和功能请求提交 Issue。对于较大的变更，建议先提交 Issue 讨论方案。
+
+### 许可证
+
+Apache 2.0。详见 [LICENSE](LICENSE)。
+
+### 支持我们
+
+如果你觉得 OpenWiki 有用，请给我们一个 Star 🌟——也欢迎查看 [PageIndex](https://github.com/VectifyAI/PageIndex)！
 
 <div>
 
-[![Twitter](https://img.shields.io/badge/Twitter-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/PageIndexAI)&ensp;
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/vectify-ai/)&ensp;
-[![Contact Us](https://img.shields.io/badge/Contact_Us-3B82F6?style=for-the-badge&logo=envelope&logoColor=white)](https://ii2abc2jejf.typeform.com/to/tK3AXl8T)
+[![Twitter](https://img.shields.io/badge/Twitter-000000?style=for-the-badge\&logo=x\&logoColor=white)](https://x.com/PageIndexAI) 
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge\&logo=linkedin\&logoColor=white)](https://www.linkedin.com/company/vectify-ai/) 
+[![Contact Us](https://img.shields.io/badge/Contact_Us-3B82F6?style=for-the-badge\&logo=envelope\&logoColor=white)](https://ii2abc2jejf.typeform.com/to/tK3AXl8T)
 
 </div>

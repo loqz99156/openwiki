@@ -1,10 +1,10 @@
-"""Structural lint checks for the OpenKB wiki.
+"""Structural lint checks for the OpenWiki wiki.
 
 Checks for:
 - Broken [[wikilinks]] — link targets that don't exist
 - Orphaned pages — pages with no incoming or outgoing links
 - Missing wiki entries — raw files without corresponding sources/summaries
-- Index sync — index.md links vs actual files on disk
+- Index sync — index.md and explorations.md links vs actual files on disk
 """
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def find_orphans(wiki: Path) -> list[str]:
     - No other page links to it (no incoming links), AND
     - It has no outgoing wikilinks itself.
 
-    index.md is excluded from orphan detection.
+    index.md and explorations.md are excluded from orphan detection.
 
     Args:
         wiki: Path to the wiki root directory.
@@ -97,10 +97,10 @@ def find_orphans(wiki: Path) -> list[str]:
     Returns:
         List of relative page paths that are orphaned.
     """
-    # Exclude index, schema, log, and sources/ (sources are auto-generated, not expected to be linked)
+    # Exclude index, schema, log, explorations, and sources/ (sources are auto-generated, not expected to be linked)
     all_mds = [
         p for p in wiki.rglob("*.md")
-        if p.name not in {"index.md", *_EXCLUDED_FILES}
+        if p.name not in {"index.md", "explorations.md", *_EXCLUDED_FILES}
         and "sources" not in p.relative_to(wiki).parts
     ]
     if not all_mds:
@@ -167,7 +167,9 @@ def check_index_sync(wiki: Path) -> list[str]:
 
     Returns issues for:
     - Links in index.md pointing to non-existent pages
+    - Links in explorations.md pointing to non-existent pages
     - Pages in summaries/ or concepts/ not mentioned in index.md
+    - Pages in explorations/ not mentioned in explorations.md
 
     Args:
         wiki: Path to the wiki root directory.
@@ -203,6 +205,25 @@ def check_index_sync(wiki: Path) -> list[str]:
             stem = md.stem
             if stem not in index_stems and stem.lower() not in index_text_lower:
                 issues.append(f"{subdir}/{stem}.md not mentioned in index.md")
+
+    # Check explorations.md
+    explorations_path = wiki / "explorations.md"
+    if explorations_path.exists():
+        expl_text = _read_md(explorations_path)
+        expl_links = set(_extract_wikilinks(expl_text))
+        for lnk in expl_links:
+            lnk_norm = lnk.strip().strip("/")
+            if lnk_norm not in pages:
+                issues.append(f"explorations.md links to missing page: [[{lnk}]]")
+
+        expl_stems = {Path(lnk.strip()).stem for lnk in expl_links}
+        expl_text_lower = expl_text.lower()
+        expl_dir = wiki / "explorations"
+        if expl_dir.exists():
+            for md in sorted(expl_dir.glob("*.md")):
+                stem = md.stem
+                if stem not in expl_stems and stem.lower() not in expl_text_lower:
+                    issues.append(f"explorations/{stem}.md not mentioned in explorations.md")
 
     return sorted(issues)
 

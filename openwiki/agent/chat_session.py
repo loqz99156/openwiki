@@ -1,6 +1,6 @@
-"""Chat session persistence for `openkb chat`.
+"""Chat session persistence for `openwiki chat`.
 
-Each session lives in ``<kb>/.openkb/chats/<id>.json`` and stores a sanitized
+Each session lives in ``<kb>/.openwiki/chats/<id>.json`` and stores a sanitized
 agent-SDK history (from ``RunResult.to_input_list()``) alongside the user
 messages and full assistant replies kept as plain strings for display and
 export. Large tool-returned image payloads are replaced with lightweight
@@ -34,7 +34,7 @@ def _gen_id() -> str:
 
 
 def chats_dir(kb_dir: Path) -> Path:
-    return kb_dir / ".openkb" / "chats"
+    return kb_dir / ".openwiki" / "chats"
 
 
 def _title_from(msg: str, limit: int = 60) -> str:

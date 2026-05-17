@@ -14,7 +14,8 @@ AGENTS_MD = """\
 - reports/ — Lint health check reports. Auto-generated.
 
 ## Special Files
-- index.md — Content catalog: every page with link, one-line summary, organized by category.
+- index.md — Content catalog: documents and concepts with one-line summaries. Explorations links to explorations.md.
+- explorations.md — Saved explorations with one-line summaries. Linked from index.md.
 - log.md — Chronological append-only record of operations (ingests, queries, lints).
 
 ## Page Types
@@ -24,10 +25,12 @@ AGENTS_MD = """\
 - **Index Page** (index.md): One-liner summary of every page in the wiki. Auto-maintained.
 
 ## Index Page Format
-index.md lists all documents, concepts, and explorations with metadata:
+index.md lists all documents and concepts with metadata:
 - Documents: name, one-liner description, type (short|pageindex), detail access path
 - Concepts: name, one-liner description
-- Explorations: name, one-liner description
+- Explorations: links to explorations.md for the full list
+
+explorations.md lists saved explorations with name and one-liner description.
 
 ## Log Format
 Each log entry: `## [YYYY-MM-DD HH:MM:SS] operation | description`

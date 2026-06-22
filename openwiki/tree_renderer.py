@@ -14,7 +14,7 @@ def _yaml_frontmatter(source_name: str, doc_id: str) -> str:
 
 
 def _render_nodes_summary(nodes: list[dict], depth: int) -> str:
-    """Recursively render nodes for the *summary* view (summaries only)."""
+    """Recursively render PageIndex nodes for the user-facing structure page."""
     lines: list[str] = []
     heading_prefix = "#" * min(depth, 6)
     for node in nodes:
@@ -35,7 +35,7 @@ def _render_nodes_summary(nodes: list[dict], depth: int) -> str:
 
 
 def render_summary_md(tree: dict, source_name: str, doc_id: str) -> str:
-    """Render the summary Markdown page for a PageIndex tree.
+    """Render the Markdown structure page for a PageIndex tree.
 
     Renders each node as a heading with page range and its summary text.
     """

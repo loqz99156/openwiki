@@ -12,11 +12,16 @@ import json
 import logging
 import time
 from pathlib import Path
+import shutil
 
 import os
 
-from agents import set_tracing_disabled
-set_tracing_disabled(True)
+try:
+    from agents import set_tracing_disabled
+except ImportError:
+    set_tracing_disabled = None
+if set_tracing_disabled is not None:
+    set_tracing_disabled(True)
 # Use local model cost map — skip fetching from GitHub on every invocation
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
@@ -35,6 +40,18 @@ import warnings
 warnings.filterwarnings("ignore")
 
 load_dotenv()  # load from cwd (covers running inside the KB dir)
+
+
+AGENT_EXTRA_INSTALL = (
+    "This command requires optional Python agent dependencies. Install them with:\n"
+    "  python3 -m pip install -e .[agent]"
+)
+
+
+def _format_agent_extra_error(exc: ImportError) -> str:
+    """Return a concise install hint for optional agent runtime imports."""
+    missing = f" Missing module: {exc.name}." if getattr(exc, "name", None) else ""
+    return f"{AGENT_EXTRA_INSTALL}{missing}"
 
 
 def _setup_llm_key(kb_dir: Path | None = None) -> None:
@@ -96,6 +113,57 @@ def _display_type(raw_type: str) -> str:
     if raw_type in _SHORT_DOC_TYPES:
         return "short"
     return raw_type
+
+
+def _read_summary_category(summary_path: Path) -> str | None:
+    if not summary_path.exists():
+        return None
+    text = summary_path.read_text(encoding="utf-8")
+    if not text.startswith("---"):
+        return None
+    end = text.find("---", 3)
+    if end == -1:
+        return None
+    for line in text[:end].splitlines():
+        if line.startswith("category:"):
+            return line[len("category:"):].strip().strip('"')
+    return None
+
+
+def _find_document_page(kb_dir: Path, doc_name: str) -> Path | None:
+    wiki_dir = kb_dir / "wiki"
+    categories_dir = wiki_dir / "categories"
+    matches: list[Path] = []
+    if categories_dir.exists():
+        matches.extend(
+            p for p in sorted(categories_dir.rglob(f"{doc_name}.md"))
+            if p.name != "index.md"
+        )
+    summaries_dir = wiki_dir / "summaries"
+    if summaries_dir.exists():
+        matches.extend(sorted(summaries_dir.rglob(f"{doc_name}.md")))
+    return matches[0] if matches else None
+
+
+def _prompt_default(prompt: str, default: str) -> str:
+    """Prompt only in interactive terminals; use default in non-interactive runs."""
+    if not click.get_text_stream("stdin").isatty():
+        return default
+    return click.prompt(prompt, default=default, show_default=False).strip()
+
+
+def _install_skill_templates(kb_dir: Path) -> None:
+    """Install OpenWiki skill templates for Codex and Claude Code."""
+    templates_dir = Path(__file__).parent / "skill_templates"
+    for skills_root in (kb_dir / ".codex" / "skills", kb_dir / ".claude" / "skills"):
+        skills_root.mkdir(parents=True, exist_ok=True)
+        for template_dir in templates_dir.iterdir():
+            if not template_dir.is_dir() or not (template_dir / "SKILL.md").is_file():
+                continue
+            target = skills_root / template_dir.name
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(template_dir, target)
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +276,13 @@ def add_single_file(file_path: Path, kb_dir: Path) -> None:
     # Register hash only after successful compilation
     if result.file_hash:
         doc_type = "long_pdf" if result.is_long_doc else file_path.suffix.lstrip(".")
-        registry.add(result.file_hash, {"name": file_path.name, "type": doc_type})
+        meta = {"name": file_path.name, "type": doc_type}
+        document_page = _find_document_page(kb_dir, doc_name)
+        if document_page:
+            category = _read_summary_category(document_page)
+            if category:
+                meta["category"] = category
+        registry.add(result.file_hash, meta)
 
     append_log(kb_dir / "wiki", "ingest", file_path.name)
     click.echo(f"  [OK] {file_path.name} added to knowledge base.")
@@ -261,34 +335,21 @@ def init():
         click.echo("Knowledge base already initialized.")
         return
 
-    # Interactive prompts
-    click.echo("Pick an LLM in `provider/model` LiteLLM format:")
-    click.echo("  OpenAI:    gpt-5.4-mini, gpt-5.4")
-    click.echo("  Anthropic: anthropic/claude-sonnet-4-6, anthropic/claude-opus-4-6")
-    click.echo("  Gemini:    gemini/gemini-3.1-pro-preview, gemini/gemini-3-flash-preview")
-    click.echo("  Others:    see https://docs.litellm.ai/docs/providers")
-    click.echo()
-    model = click.prompt(
-        f"Model (enter for default {DEFAULT_CONFIG['model']})",
-        default=DEFAULT_CONFIG["model"],
-        show_default=False,
-    )
-    api_key = click.prompt(
-        "LLM API Key (saved to .env, enter to skip)",
-        default="",
-        hide_input=True,
-        show_default=False,
-    ).strip()
+    purpose = _prompt_default("Knowledge base purpose (enter for default)", "个人知识库")
+    categories = _prompt_default("Categories, comma-separated (enter for default)", "通用")
+
     # Create directory structure
     Path("raw").mkdir(exist_ok=True)
+    Path(".codex/skills").mkdir(parents=True, exist_ok=True)
+    Path(".claude/skills").mkdir(parents=True, exist_ok=True)
     Path("wiki/sources/images").mkdir(parents=True, exist_ok=True)
-    Path("wiki/summaries").mkdir(parents=True, exist_ok=True)
     Path("wiki/concepts").mkdir(parents=True, exist_ok=True)
+    Path("wiki/categories").mkdir(parents=True, exist_ok=True)
 
     # Write wiki files
     Path("wiki/AGENTS.md").write_text(AGENTS_MD, encoding="utf-8")
     Path("wiki/index.md").write_text(
-        "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Explorations\n- [[explorations]]\n",
+        "# Knowledge Base Index\n\n## Categories\n\n## Documents\n\n## Concepts\n\n## Explorations\n- [[explorations]]\n",
         encoding="utf-8",
     )
     Path("wiki/explorations.md").write_text(
@@ -296,26 +357,21 @@ def init():
         encoding="utf-8",
     )
     Path("wiki/log.md").write_text("# Operations Log\n\n", encoding="utf-8")
+    _install_skill_templates(Path.cwd())
 
     # Create .openwiki/ state directory
     openwiki_dir.mkdir()
     config = {
-        "model": model,
+        "model": DEFAULT_CONFIG["model"],
         "language": DEFAULT_CONFIG["language"],
         "pageindex_threshold": DEFAULT_CONFIG["pageindex_threshold"],
+        "retrieval": DEFAULT_CONFIG["retrieval"],
     }
     save_config(openwiki_dir / "config.yaml", config)
     (openwiki_dir / "hashes.json").write_text(json.dumps({}), encoding="utf-8")
 
-    # Write API key to KB-local .env (0600) if the user provided one
-    if api_key:
-        env_path = Path(".env")
-        if env_path.exists():
-            click.echo(".env already exists, skipping write. Add LLM_API_KEY manually if needed.")
-        else:
-            env_path.write_text(f"LLM_API_KEY={api_key}\n", encoding="utf-8")
-            os.chmod(env_path, 0o600)
-            click.echo("Saved LLM API key to .env.")
+    from openwiki.taxonomy import create_taxonomy
+    create_taxonomy(Path.cwd(), purpose, categories)
 
     # Register this KB in the global config
     register_kb(Path.cwd())
@@ -377,7 +433,11 @@ def query(ctx, question, save, raw):
         click.echo("No knowledge base found. Run `openwiki init` first.")
         return
 
-    from openwiki.agent.query import run_query
+    try:
+        from openwiki.agent.query import run_query
+    except ImportError as exc:
+        click.echo(_format_agent_extra_error(exc))
+        return
 
     openwiki_dir = kb_dir / ".openwiki"
     config = load_config(openwiki_dir / "config.yaml")
@@ -396,11 +456,24 @@ def query(ctx, question, save, raw):
         import re
         slug = re.sub(r"[^a-z0-9]+", "-", question.lower()).strip("-")[:60]
         explore_dir = kb_dir / "wiki" / "explorations"
+        exploration_link = f"explorations/{slug}"
+        from openwiki.taxonomy import DEFAULT_CATEGORY_ID, load_taxonomy, update_category_exploration
+        taxonomy = load_taxonomy(kb_dir)
+        category_id = None
+        if taxonomy is not None:
+            category_id = DEFAULT_CATEGORY_ID
+            explore_dir = explore_dir / category_id
+            exploration_link = f"explorations/{category_id}/{slug}"
         explore_dir.mkdir(parents=True, exist_ok=True)
         explore_path = explore_dir / f"{slug}.md"
         explore_path.write_text(
-            f"---\nquery: \"{question}\"\n---\n\n{answer}\n", encoding="utf-8"
+            f"---\nquery: \"{question}\"\n"
+            + (f"category: \"{category_id}\"\n" if category_id else "")
+            + f"---\n\n{answer}\n",
+            encoding="utf-8"
         )
+        if taxonomy is not None and category_id:
+            update_category_exploration(kb_dir / "wiki", taxonomy, category_id, exploration_link, question)
         click.echo(f"\nSaved to {explore_path}")
 
 
@@ -502,7 +575,11 @@ def chat(ctx, resume, list_sessions_flag, delete_id, no_color, raw):
         language: str = config.get("language", "en")
         session = ChatSession.new(kb_dir, model, language)
 
-    from openwiki.agent.chat import run_chat
+    try:
+        from openwiki.agent.chat import run_chat
+    except ImportError as exc:
+        click.echo(_format_agent_extra_error(exc))
+        return
 
     try:
         asyncio.run(run_chat(kb_dir, session, no_color=no_color, raw=raw))
@@ -547,7 +624,14 @@ async def run_lint(kb_dir: Path) -> Path | None:
     (via ``asyncio.run``) and directly from the chat REPL.
     """
     from openwiki.lint import run_structural_lint
-    from openwiki.agent.linter import run_knowledge_lint
+
+    try:
+        from openwiki.agent.linter import run_knowledge_lint
+    except ImportError as exc:
+        run_knowledge_lint = None
+        semantic_skip_reason = _format_agent_extra_error(exc)
+    else:
+        semantic_skip_reason = None
 
     openwiki_dir = kb_dir / ".openwiki"
 
@@ -570,10 +654,13 @@ async def run_lint(kb_dir: Path) -> Path | None:
     click.echo(structural_report)
 
     click.echo("Running knowledge lint...")
-    try:
-        knowledge_report = await run_knowledge_lint(kb_dir, model)
-    except Exception as exc:
-        knowledge_report = f"Knowledge lint failed: {exc}"
+    if run_knowledge_lint is None:
+        knowledge_report = f"Knowledge lint skipped.\n\n{semantic_skip_reason}"
+    else:
+        try:
+            knowledge_report = await run_knowledge_lint(kb_dir, model)
+        except Exception as exc:
+            knowledge_report = f"Knowledge lint failed: {exc}"
     click.echo(knowledge_report)
 
     # Write combined report
@@ -619,24 +706,36 @@ def print_list(kb_dir: Path) -> None:
     # Display documents table with count in header
     doc_count = len(hashes)
     click.echo(f"Documents ({doc_count}):")
-    click.echo(f"  {'Name':<40} {'Type':<12} {'Pages':<8}")
-    click.echo(f"  {'-'*40} {'-'*12} {'-'*8}")
+    click.echo(f"  {'Name':<40} {'Type':<12} {'Category':<16} {'Pages':<8}")
+    click.echo(f"  {'-'*40} {'-'*12} {'-'*16} {'-'*8}")
     for file_hash, meta in hashes.items():
         name = meta.get("name", "unknown")
         raw_type = meta.get("type", "unknown")
         display = _display_type(raw_type)
+        category = meta.get("category", "")
         pages = meta.get("pages", "")
         pages_str = str(pages) if pages else ""
-        click.echo(f"  {name:<40} {display:<12} {pages_str:<8}")
+        click.echo(f"  {name:<40} {display:<12} {category:<16} {pages_str:<8}")
 
-    # Display summaries
+    # Display user-facing document pages
+    categories_dir = kb_dir / "wiki" / "categories"
+    document_pages = []
+    if categories_dir.exists():
+        document_pages.extend(
+            str(p.relative_to(kb_dir / "wiki").with_suffix("")).replace("\\", "/")
+            for p in categories_dir.rglob("*.md")
+            if p.name != "index.md"
+        )
     summaries_dir = kb_dir / "wiki" / "summaries"
     if summaries_dir.exists():
-        summaries = sorted(p.stem for p in summaries_dir.glob("*.md"))
-        if summaries:
-            click.echo(f"\nSummaries ({len(summaries)}):")
-            for s in summaries:
-                click.echo(f"  - {s}")
+        document_pages.extend(
+            str(p.relative_to(kb_dir / "wiki").with_suffix("")).replace("\\", "/")
+            for p in summaries_dir.rglob("*.md")
+        )
+    if document_pages:
+        click.echo(f"\nDocument pages ({len(document_pages)}):")
+        for page in sorted(document_pages):
+            click.echo(f"  - {page}")
 
     # Display concepts
     concepts_dir = kb_dir / "wiki" / "concepts"
@@ -671,7 +770,7 @@ def list_cmd(ctx):
 def print_status(kb_dir: Path) -> None:
     """Print knowledge base status. Usable from CLI and chat REPL."""
     wiki_dir = kb_dir / "wiki"
-    subdirs = ["sources", "summaries", "concepts", "reports"]
+    subdirs = ["sources", "categories", "concepts", "reports"]
 
     click.echo("Knowledge Base Status:")
     click.echo(f"  {'Directory':<20} {'Files':<10}")
@@ -680,7 +779,7 @@ def print_status(kb_dir: Path) -> None:
     for subdir in subdirs:
         path = wiki_dir / subdir
         if path.exists():
-            count = len(list(path.glob("*.md")))
+            count = len(list(path.rglob("*.md")))
         else:
             count = 0
         click.echo(f"  {subdir:<20} {count:<10}")
@@ -698,15 +797,19 @@ def print_status(kb_dir: Path) -> None:
         hashes = json.loads(hashes_file.read_text(encoding="utf-8"))
         click.echo(f"\n  Total indexed: {len(hashes)} document(s)")
 
-    # Last compile time: newest file in wiki/summaries/
+    # Last compile time: newest user-facing document page.
+    summary_pages = []
     summaries_dir = wiki_dir / "summaries"
+    categories_dir = wiki_dir / "categories"
     if summaries_dir.exists():
-        summaries = list(summaries_dir.glob("*.md"))
-        if summaries:
-            newest_summary = max(summaries, key=lambda p: p.stat().st_mtime)
-            import datetime
-            mtime = datetime.datetime.fromtimestamp(newest_summary.stat().st_mtime)
-            click.echo(f"  Last compile:  {mtime.strftime('%Y-%m-%d %H:%M:%S')}")
+        summary_pages.extend(summaries_dir.rglob("*.md"))
+    if categories_dir.exists():
+        summary_pages.extend(p for p in categories_dir.rglob("*.md") if p.name != "index.md")
+    if summary_pages:
+        newest_summary = max(summary_pages, key=lambda p: p.stat().st_mtime)
+        import datetime
+        mtime = datetime.datetime.fromtimestamp(newest_summary.stat().st_mtime)
+        click.echo(f"  Last compile:  {mtime.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Last lint time: newest file in wiki/reports/
     reports_dir = wiki_dir / "reports"
@@ -728,3 +831,26 @@ def status(ctx):
         click.echo("No knowledge base found. Run `openwiki init` first.")
         return
     print_status(kb_dir)
+
+
+@cli.command()
+@click.argument("doc_name")
+@click.argument("category")
+@click.pass_context
+def classify(ctx, doc_name, category):
+    """Safely assign a document to CATEGORY and update category pages."""
+    kb_dir = _find_kb_dir(ctx.obj.get("kb_dir_override"))
+    if kb_dir is None:
+        click.echo("No knowledge base found. Run `openwiki init` first.")
+        return
+    from openwiki.taxonomy import reclassify_document
+    try:
+        old_link, new_link = reclassify_document(kb_dir, Path(doc_name).stem, category)
+    except Exception as exc:
+        click.echo(f"[ERROR] Reclassification failed: {exc}")
+        return
+    append_log(kb_dir / "wiki", "classify", f"{old_link} -> category:{category}")
+    if old_link == new_link:
+        click.echo(f"Reclassified: [[{new_link}]] -> category:{category}")
+    else:
+        click.echo(f"Reclassified: [[{old_link}]] -> [[{new_link}]]")

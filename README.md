@@ -1,257 +1,382 @@
 <div align="center">
 
-# OpenWiki — 开放 LLM 知识库
+# OpenWiki - Open LLM Knowledge Base
 
-<p align="center"><i>支持长文档处理&nbsp; • &nbsp;基于推理的检索&nbsp; • &nbsp;原生多模态&nbsp; • &nbsp;无需向量数据库</i></p>
+<p align="center"><i>Continuously compile raw materials into readable, linkable, searchable Markdown wiki pages.</i></p>
+
+<p align="center"><a href="README.cn.md">中文版</a></p>
 
 </div>
 
-***
+---
 
-# 📑 什么是 OpenWiki
+## Introduction
 
-**OpenWiki（开放知识库）** 是一个面向 Obsidian 和 Claude Code 的开源知识库系统。它利用 LLM 将原始文档编译成结构化、相互关联的 Wiki 风格知识库，并由 **[PageIndex](https://github.com/VectifyAI/PageIndex)** 提供无向量长文档检索能力。
+OpenWiki is a local knowledge-base system for Obsidian, Claudian, Claude Code, Codex, and OpenClaw.
 
-它的核心思想是：知识不应该在每次提问时重新检索、重新总结，而应该被持续编译成可阅读、可维护、可链接的 Markdown Wiki。OpenWiki 会为文档生成摘要、概念页、交叉引用和查询沉淀，让知识随着文档增加而不断积累。
+Instead of simply putting documents into a vector store and waiting for Q&A, OpenWiki converts, classifies, and compiles PDFs, Markdown, Word documents, PowerPoint files, HTML, spreadsheets, and text files into a plain Markdown wiki. You can read it in Obsidian, and you can use OpenWiki skills in Claudian, Claude Code, Codex, or OpenClaw to add materials, ask follow-up questions, save analysis, and organize categories.
 
-OpenWiki 的默认工作目录是 `my-wiki/`，它既是 **Obsidian vault**，也是 OpenWiki 的知识库根目录。用户可以在 Obsidian 中浏览 `wiki/` 内容，并通过 Claude Code 插件使用 `/init`、`/add`、`/query`、`/chat` 等命令维护知识库。
+Core capabilities:
 
-主要能力：
+- Create a knowledge-base directory that can be opened directly as an Obsidian vault.
+- Organize knowledge with categories, document pages, concept pages, and exploration notes.
+- Use qmd for local recall over user-visible Markdown wiki pages.
+- Use PageIndex for PDFs of 30 pages or more, while keeping paged full-text traceability.
+- Save valuable Q&A into `wiki/explorations/`, then reorganize them later if needed.
 
-* **广泛格式支持** — PDF、Word、Markdown、PowerPoint、HTML、Excel、文本等，通过 markitdown 转换。
-* **长文档处理** — 通过 PageIndex 树索引处理长 PDF，实现无向量、基于推理的长文档检索。
-* **Wiki 编译** — LLM 将文档编译成摘要、概念页和交叉链接。
-* **查询与聊天** — 支持一次性问答和围绕知识库的多轮对话。
-* **Obsidian 兼容** — 输出为普通 Markdown 文件，并使用 `[[wikilinks]]`。
+## qmd and PageIndex
 
-# 🚀 快速开始
+OpenWiki does not rely on only one retrieval method. It separates regular wiki-page recall from long-document tracing: qmd quickly finds relevant Markdown pages, while PageIndex handles long PDFs.
 
-### 1. 获取项目并运行安装脚本
+### qmd: local recall over the wiki
+
+qmd is OpenWiki's local retrieval layer. It searches the user-visible, readable Markdown wiki, not hidden state directories or raw files.
+
+In OpenWiki, qmd mainly:
+
+- Recalls relevant pages from `wiki/index.md`, `wiki/categories/`, `wiki/concepts/`, and `wiki/explorations/`.
+- Helps `/openwiki-chat` find likely relevant document pages, concept pages, and saved explorations before answering.
+- Works as a lightweight local search layer that complements the wiki category structure.
+
+qmd does not search `raw/`, `.openwiki/`, `.codex/`, `.claude/`, or `wiki/sources/` by default. This keeps answers grounded in curated, user-readable knowledge-base content.
+
+### PageIndex: structured tracing for long PDFs
+
+PageIndex handles PDFs of 30 pages or more. Long PDFs are not suitable for sending to the model as one large full-text blob, so OpenWiki first uses PageIndex to build section structure and paged content.
+
+In OpenWiki, PageIndex mainly:
+
+- Generates structured tables of contents, section hierarchy, and page ranges for long PDFs.
+- Stores paged full text in `wiki/sources/<document>.json`.
+- Keeps the structure page and `full_text` pointer in the category document page, so details can be traced back by page.
+- Lets `/openwiki-chat` return to specific pages when it needs long-PDF details, instead of relying only on summaries.
+
+In short: qmd finds relevant pages in the curated wiki; PageIndex turns very long PDFs into traceable structure plus paged full text.
+
+## Quick Start
+
+Common requirements:
+
+- Python 3.10 or later
+- pip
+- Git
+- Node.js / npm, for the required qmd installation
+
+### Option 1: Obsidian + Claudian
+
+Install Obsidian first, then install the Claudian plugin in Obsidian.
+
+#### Installation
 
 ```bash
 git clone https://github.com/loqz99156/openwiki.git openwiki
 cd openwiki
-
-# macOS / Linux 终端
 bash install.sh
-
-# macOS 双击运行
-# 双击 install.command
-
-# Windows PowerShell
-# .\install.ps1
-
-# Windows 双击运行
-# 双击 install.bat
 ```
 
-安装脚本会：
+On macOS, you can also double-click `install.command`. On Windows, use `install.bat` or `install.ps1`.
 
-1. 执行开发安装：`python3 -m pip install -e .`
-2. 创建 `my-wiki/` 目录
-3. 将 Claude Code commands 安装到 `my-wiki/.claude/commands/`
+The installer prepares PageIndex and qmd together:
 
-### 2. 用 Obsidian 打开 my-wiki
+- Installs the `openwiki` Python package and Python dependencies, including PageIndex, MarkItDown, and PyMuPDF.
+- Installs qmd through npm.
+- Verifies that key dependencies such as PageIndex, qmd, and PyMuPDF are available.
+- Creates the default knowledge-base directory `my-wiki/`.
+- Installs the four OpenWiki skills into `my-wiki/.codex/skills/` and `my-wiki/.claude/skills/`.
 
-安装完成后，用 Obsidian 打开：
+After installation, finish plugin setup in Obsidian:
+
+1. Open Obsidian.
+2. Click `Obsidian vault` in the lower-left corner, then choose "Manage vaults".
+3. Choose "Open local vault".
+4. Select the installer-created `my-wiki/` as the vault folder.
+5. Open Obsidian settings and enable community plugins.
+6. Browse the community plugin marketplace, search for Claudian, and install it.
+7. Enable the Claudian plugin.
+8. In the Claude tab of the Claudian plugin, find `Commands and Skills` and confirm that `openwiki-init`, `openwiki-add`, `openwiki-chat`, and `openwiki-category` are loaded.
+
+#### Usage
+
+Open the whole knowledge-base directory in Obsidian:
 
 ```text
 my-wiki/
 ```
 
-它就是你的 Obsidian vault / OpenWiki 知识库根目录。
+It is both the Obsidian vault and the OpenWiki knowledge-base root. After initialization, you mainly read `wiki/index.md`, `wiki/categories/`, `wiki/concepts/`, and `wiki/explorations/`.
 
-### 3. 在 Claude Code 插件中初始化知识库
+Do not initialize a knowledge base inside the OpenWiki source repository.
 
-在 Obsidian 的 Claude Code 插件中运行：
+Initialize the knowledge base:
+
+In the Obsidian Claudian chat box, enter:
 
 ```text
-/init
+/openwiki-init
 ```
 
-`/init` 会在当前 vault 中创建：
+Then follow the prompts to fill in the knowledge-base purpose and categories. You can also write it in one line:
+
+```text
+/openwiki-init Initialize this knowledge base. Purpose: personal knowledge base. Categories: AI, history, investing.
+```
+
+`openwiki-init` creates `.openwiki/`, `raw/`, and `wiki/`, writes the taxonomy, and keeps a default `Uncategorized` category.
+
+Add materials:
+
+Put raw files into:
+
+```text
+my-wiki/raw/
+```
+
+Then enter:
+
+```text
+/openwiki-add
+```
+
+`/openwiki-add` automatically processes new documents in `raw/` that have not been added yet. You can also specify a file or directory:
+
+```text
+/openwiki-add add paper.pdf
+/openwiki-add add documents from ~/Documents/research
+```
+
+Ask questions and save answers:
+
+```text
+/openwiki-chat
+```
+
+`/openwiki-chat` enters the knowledge-base Q&A flow and then accepts follow-up questions. You can also include a question directly:
+
+```text
+/openwiki-chat Answer from this knowledge base: what are the main findings in these materials?
+```
+
+`/openwiki-chat` first reads the knowledge-base structure, then uses qmd to recall related Markdown pages. It does not rerun PageIndex during chat. Only when a matched long-PDF document page has a `full_text` pointer and more detail is needed will it read the paged full text that PageIndex already generated. Answers should come from the local wiki; if evidence is missing, it should say so.
+
+If an answer is worth keeping, just reply with `save`. The system will ask which category directory to save into, then write the Q&A as a wiki note under `wiki/explorations/<category>/`, update the exploration index, and update the corresponding category page. After saving, you stay in the same `/openwiki-chat` conversation and can continue asking follow-up questions; you do not need to enter `/openwiki-chat` again.
+
+Organize categories:
+
+```text
+/openwiki-category
+/openwiki-category list categories
+/openwiki-category move paper to AI
+/openwiki-category add a category called Product
+```
+
+If you enter only `/openwiki-category`, the system lists available category actions first and asks what you want to do next.
+
+Category changes move only user-visible document pages or exploration notes. They do not move stable source content under `wiki/sources/`.
+
+### Option 2: OpenClaw
+
+OpenClaw does not require entering Obsidian or installing Claudian. Its role is to call the same OpenWiki skills for you from its own chat window.
+
+OpenClaw can use four OpenWiki skills:
+
+- `/openwiki-init` initializes a specified knowledge-base directory and creates `.openwiki/`, `raw/`, `wiki/`, the taxonomy, and OpenWiki skills.
+- `/openwiki-add` adds materials by placing uploaded or specified files into the current knowledge base's `raw/`, then converting, classifying, and writing to `wiki/categories/<category>/`, `wiki/sources/`, `wiki/concepts/`, and index pages.
+- `/openwiki-chat` asks questions, follows up, and compares using the current knowledge base's `wiki/` content. Answers come from the local wiki; useful answers are saved to `wiki/explorations/<category>/`.
+- `/openwiki-category` organizes categories in the current knowledge base. It moves user-visible document pages or exploration notes, but does not move stable source content under `wiki/sources/`.
+
+#### Installation
+
+Send this message directly to OpenClaw:
+
+```text
+Please install OpenWiki for me: clone https://github.com/loqz99156/openwiki.git into a local folder named openwiki, enter that folder, and run the one-click installer for the current operating system. After installation, confirm that my-wiki/ has been created, and use my-wiki/ as the knowledge base I want to operate. After that, initialize and use this knowledge base through OpenWiki skills.
+```
+
+#### Usage
+
+When OpenClaw uses OpenWiki, it must first determine the current knowledge base. If the user explicitly names a knowledge-base directory, operate on that directory. If not, use the default knowledge base.
+
+When OpenClaw receives a natural-language request, it should route it to the matching skill:
+
+- Add files, save uploaded files, import materials: call `/openwiki-add`.
+- Ask, follow up, summarize, or compare based on the knowledge base: call `/openwiki-chat`.
+- Save the current Q&A: stay in the current `/openwiki-chat`, ask for a category, then write an exploration note.
+- View, move, add, rename, or delete categories: call `/openwiki-category`.
+
+Common examples:
+
+Initialize:
+
+```text
+Use my-wiki/ as the current knowledge base, call /openwiki-init to initialize it, and ask me for the knowledge-base purpose and categories during initialization.
+```
+
+OpenClaw should call `/openwiki-init` and let the user fill in the purpose and categories.
+
+Add an uploaded file:
+
+```text
+Save the file I just uploaded into the my-wiki/ knowledge base.
+```
+
+OpenClaw should place the uploaded file into `my-wiki/raw/`, then call `/openwiki-add` to process the new document. When done, it should tell the user which category document page was generated.
+
+Add a file or directory by path:
+
+```text
+Add ~/Downloads/paper.pdf to the my-wiki/ knowledge base.
+```
+
+OpenClaw should call `/openwiki-add`, copy the file into `my-wiki/raw/`, and then add it.
+
+Ask from the knowledge base:
+
+```text
+In the my-wiki/ knowledge base, answer: how many years did Chinese emperors reign?
+```
+
+OpenClaw should call `/openwiki-chat` and answer based on the local content under `my-wiki/wiki/`. After entering `/openwiki-chat`, if the user has not switched to another skill, it should remain in the same knowledge-base Q&A state.
+
+Save an answer:
+
+```text
+Save
+```
+
+OpenClaw should stay in the current `/openwiki-chat` state, ask which category to save into, write the Q&A to `my-wiki/wiki/explorations/<category>/`, and update `wiki/explorations.md` plus the corresponding category page.
+
+Organize categories:
+
+```text
+Organize categories in the my-wiki/ knowledge base.
+```
+
+OpenClaw should call `/openwiki-category`. If no further detail is provided, it should list the available category actions and ask the user what to do next.
+
+Move a document category:
+
+```text
+Move paper in the my-wiki/ knowledge base to the AI category.
+```
+
+OpenClaw should call `/openwiki-category`, move the user-visible document page under `wiki/categories/`, and update indexes, frontmatter, and links.
+
+## Structure
+
+An initialized knowledge base looks roughly like this:
 
 ```text
 my-wiki/
-  .claude/              Claude Code 插件命令（隐藏）
-    commands/
-  .openwiki/            OpenWiki 状态（隐藏）
-    config.yaml
-    hashes.json
-  raw/                  原始资料
-  wiki/                 Obsidian 中浏览的知识库内容
-    AGENTS.md
-    index.md
-    log.md
-    sources/
-    summaries/
-    concepts/
+  .openwiki/                    OpenWiki internal state and configuration
+    config.yaml                 Knowledge-base configuration
+    hashes.json                 Hash records for processed documents
+    taxonomy.yaml               Category taxonomy
+    chats/                      Chat session records
+  .codex/                       Local skills available to Codex
+    skills/openwiki-init/       Initialize the knowledge base
+    skills/openwiki-add/        Add materials
+    skills/openwiki-chat/       Knowledge-base Q&A
+    skills/openwiki-category/   Category organization
+  .claude/                      Local skills available to Claude Code / Claudian
+    skills/openwiki-init/       Initialize the knowledge base
+    skills/openwiki-add/        Add materials
+    skills/openwiki-chat/       Knowledge-base Q&A
+    skills/openwiki-category/   Category organization
+  raw/                          Put original materials here
+  wiki/                         User-readable and searchable Markdown knowledge base
+    AGENTS.md                   Knowledge-base schema and LLM editing rules
+    index.md                    Main knowledge-base index
+    explorations.md             Entry page for saved explorations
+    log.md                      Operation log
+    sources/                    Stable converted source content
+      images/                   Images extracted from documents
+    concepts/                   Cross-document concept pages
+    categories/                 User-visible document pages by category
+      uncategorized/            Uncategorized content
+        index.md                Uncategorized entry page
+    explorations/               Saved Q&A, analyses, and comparisons
 ```
 
-### 4. 添加文档
+Important boundaries:
 
-把文件放进 `my-wiki/raw/` 后运行：
+- `raw/` stores original materials.
+- `wiki/` is the user-readable Markdown knowledge base.
+- `wiki/sources/` stores stable converted source content. Do not move it during classification.
+- `wiki/categories/<category>/` stores user-visible category document pages.
+- `wiki/concepts/` stores cross-document concept pages.
+- `wiki/explorations/` stores saved Q&A, analyses, and comparisons.
+- `.openwiki/` stores configuration, hashes, sessions, and state.
+- `wiki/AGENTS.md` inside the knowledge base is the runtime wiki schema generated by OpenWiki initialization.
 
-```text
-/add
-```
+## Principles
 
-也可以直接添加指定文件或目录：
+OpenWiki maintains the knowledge base in three layers.
 
-```text
-/add paper.pdf
-/add ~/Documents/research
-```
+The first layer is mechanical conversion. Short documents are converted to Markdown. Text and Markdown files are decoded safely. Office, HTML, and similar formats are converted through MarkItDown. Short PDFs have text and images extracted. PDFs of 30 pages or more go through PageIndex, which generates a structure page and paged full text.
 
-### 5. 提问或聊天
+The second layer is LLM compilation. Based on converted content and the current taxonomy, the model generates user-readable category document pages, short index descriptions, concept pages, and cross-links. For long PDFs, OpenWiki does not duplicate the entire body into the document page. Instead, the category page keeps structure, page ranges, and a `full_text: sources/<document>.json` pointer.
 
-一次性提问：
+The third layer is retrieval and tracing. `openwiki-chat` first follows `index.md`, category pages, and concept pages to understand the knowledge base, then uses qmd to recall candidate pages from the user-visible Markdown layer. qmd does not search `raw/`, `.openwiki/`, `.codex/`, `.claude/`, or `wiki/sources/`. When long-PDF details are needed, OpenWiki follows the document-page pointer to read paged source content.
 
-```text
-/query 主要发现是什么？
-```
-
-进入持续对话模式：
-
-```text
-/chat
-```
-
-保存最近一次问答：
-
-```text
-/save 主要发现
-```
-
-退出 OpenWiki 对话模式：
-
-```text
-/bye
-```
-
-# 🧩 OpenWiki 工作原理
-
-OpenWiki 将文档处理分为两个阶段：**机械转换 / 索引** 和 **LLM 知识编译**。
-
-### 目录结构
-
-```text
-my-wiki/
-  raw/                              你放入原始文档
-  wiki/
-    AGENTS.md                       Wiki 结构规则和 LLM 操作说明
-    index.md                        知识库索引
-    log.md                          操作日志
-    sources/                        转换后的源内容
-      images/                       提取出的图片
-    summaries/                      每个文档的摘要
-    concepts/                       跨文档概念页
-    explorations/                   保存的查询结果
-    reports/                        检查报告
-  .openwiki/                        配置、哈希注册表、会话状态
-  .claude/commands/                 Claude Code 插件命令
-```
-
-### 文档处理流程
-
-```text
-raw/ 原始文档
-  │
-  ├─ 短文档 ──→ markitdown ──→ LLM 读取全文
-  │
-  ├─ 长 PDF ──→ PageIndex ───→ LLM 读取文档树
-  │
-  ▼
-LLM 编译 Wiki
-  │
-  ├─ summaries/   每个文档的摘要
-  ├─ concepts/    跨文档主题综合
-  ├─ index.md     内容索引
-  └─ log.md       操作记录
-```
-
-### 短文档与长文档
-
-| 类型 | 处理方式 | LLM 读取内容 | 输出 |
-| --- | --- | --- | --- |
-| 短文档 | markitdown 转 Markdown | 全文 | 摘要 + 概念页 |
-| 长 PDF | PageIndex 树索引 | 文档树 / 摘要节点 | 摘要 + 概念页 |
-
-短文档会被完整转换为 Markdown 并交给 LLM 编译。长 PDF 会先由 PageIndex 构建分层树索引，LLM 通过文档树进行检索和推理，避免长上下文直接塞入模型导致的信息退化。
-
-### 知识如何积累
-
-每次添加文档时，OpenWiki 会：
-
-1. 生成文档摘要页
-2. 阅读已有概念页
-3. 创建或更新跨文档概念
-4. 更新 `wiki/index.md`
-5. 追加 `wiki/log.md`
-
-因此，知识不是孤立地存在于每个文档中，而是逐步沉淀为可浏览、可链接、可查询的 Wiki。
-
-# ⚙️ 使用方法
-
-### 命令
-
-| 命令 | 作用 |
-| --- | --- |
-| `/init` | 在当前 Obsidian vault 中初始化 OpenWiki 知识库 |
-| `/add [路径]` | 添加指定文件/目录；不带路径时处理 `raw/` 中未索引的新文件 |
-| `/query <问题>` | 对知识库进行一次性提问 |
-| `/chat` | 进入基于知识库的持续对话模式 |
-| `/save [名称]` | 保存最近一次问答到 `wiki/explorations/` |
-| `/bye` | 退出 OpenWiki 对话模式 |
-
-### 配置 LLM
-
-`/init` 会提示填写模型和可选 API Key。配置文件位于当前 vault 下：
+Default configuration is stored at:
 
 ```text
 my-wiki/.openwiki/config.yaml
 ```
 
-示例：
+Common fields:
 
 ```yaml
-model: gpt-5.4-mini
 language: en
-pageindex_threshold: 20
+model: gpt-5.4-mini
+pageindex_threshold: 30
+retrieval:
+  engine: auto
+  qmd_mode: search
+  fallback: wiki_structure
 ```
 
-模型名称使用 LiteLLM 的 `provider/model` 格式，例如：
+The normal Claudian, Claude Code, and Codex skill paths do not require you to manually enter a model or API key. Model capability comes from the current session.
 
-| 提供商 | 模型示例 |
-| --- | --- |
-| OpenAI | `gpt-5.4-mini` |
-| Anthropic | `anthropic/claude-sonnet-4-6` |
-| Gemini | `gemini/gemini-3.1-pro-preview` |
-
-API Key 可以在 `/init` 时输入，也可以手动写入：
+## Flow
 
 ```text
-my-wiki/.env
+Install OpenWiki
+  |
+  v
+Create or enter the knowledge-base directory
+  |
+  v
+/openwiki-init
+  |
+  v
+Put original materials into raw/
+  |
+  v
+/openwiki-add
+  |
+  +-- Short documents -> Markdown -> category document pages
+  |
+  +-- Long PDFs -> PageIndex -> structure page + paged full text
+  |
+  v
+Update categories/, concepts/, index.md, and log.md
+  |
+  v
+/openwiki-chat ask, compare, summarize
+  |
+  +-- Read index.md, categories/, and concepts/ first
+  |
+  +-- Use qmd to recall related Markdown pages
+  |
+  +-- If long-PDF details are needed, trace through PageIndex paged full text
+  |
+  v
+Save to explorations/, then reorganize with /openwiki-category if needed
 ```
 
-```bash
-LLM_API_KEY=your_llm_api_key
-```
+When adding documents, OpenWiki registers the hash only after conversion, indexing, and LLM compilation all succeed. This prevents failed partial outputs from being treated as completed documents.
 
-### 在 Obsidian 中使用
+## License
 
-推荐用 Obsidian 打开整个 `my-wiki/` 目录。用户主要浏览：
-
-```text
-wiki/
-  index.md
-  summaries/
-  concepts/
-  explorations/
-```
-
-`.claude/` 和 `.openwiki/` 是隐藏目录，分别用于 Claude Code commands 和 OpenWiki 状态管理，通常不需要手动编辑。
-
-# 📄 许可证
-
-Apache 2.0。详见 [LICENSE](LICENSE)。
+Apache License 2.0. See [LICENSE](LICENSE).

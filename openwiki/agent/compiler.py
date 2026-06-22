@@ -13,6 +13,7 @@ import asyncio
 import json
 import logging
 import re
+import shutil
 import sys
 import threading
 import time
@@ -22,6 +23,15 @@ from pathlib import Path
 import litellm
 
 from openwiki.schema import get_agents_md
+from openwiki.taxonomy import (
+    DEFAULT_CATEGORY_ID,
+    category_ids,
+    category_document_path,
+    load_taxonomy,
+    resolve_category_id,
+    taxonomy_prompt,
+    update_category_page,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +54,9 @@ New document: {doc_name}
 Full text:
 {content}
 
-Write a summary page for this document in Markdown.
+Write a compact internal summary for this document. This summary is used only
+for classification, index briefs, and concept planning. It is not the document
+page content.
 
 Return a JSON object with two keys:
 - "brief": A single sentence (under 100 chars) describing the document's main contribution
@@ -92,7 +104,7 @@ Return a JSON object with two keys:
 - "brief": A single sentence (under 100 chars) defining this concept
 - "content": The full concept page in Markdown. Include clear explanation, \
 key details from the source document, and [[wikilinks]] to related concepts \
-and [[summaries/{doc_name}]]
+and [[{summary_link}]]
 
 Return ONLY valid JSON, no fences.
 """
@@ -124,6 +136,25 @@ Based on this structured summary, write a concise overview that captures \
 the key themes and findings. This will be used to generate concept pages.
 
 Return ONLY the Markdown content (no frontmatter, no code fences).
+"""
+
+_CLASSIFY_USER = """\
+Classify this document into exactly one existing category.
+
+{taxonomy}
+
+Document name: {doc_name}
+Document brief: {doc_brief}
+
+Summary:
+{summary}
+
+Return ONLY valid JSON:
+{{"category": "<one allowed category id>", "confidence": 0.0}}
+
+Rules:
+- Use only one of the allowed category ids.
+- If uncertain, use "{fallback}".
 """
 
 
@@ -336,22 +367,108 @@ def _insert_section_entry(lines: list[str], heading: str, entry: str) -> bool:
 
 
 
+def _wiki_rel(path: Path, wiki_dir: Path, with_suffix: bool = True) -> str:
+    rel = path.relative_to(wiki_dir)
+    if not with_suffix:
+        rel = rel.with_suffix("")
+    return str(rel).replace("\\", "/")
+
+
+def _classify_document(
+    kb_dir: Path,
+    model: str,
+    system_msg: dict,
+    doc_name: str,
+    summary: str,
+    doc_brief: str,
+) -> str | None:
+    """Return category id for taxonomy-enabled KBs, or None for legacy KBs."""
+    taxonomy = load_taxonomy(kb_dir)
+    if taxonomy is None:
+        return None
+
+    allowed = category_ids(taxonomy)
+    raw = _llm_call(model, [
+        system_msg,
+        {"role": "user", "content": _CLASSIFY_USER.format(
+            taxonomy=taxonomy_prompt(taxonomy),
+            doc_name=doc_name,
+            doc_brief=doc_brief,
+            summary=summary,
+            fallback=DEFAULT_CATEGORY_ID,
+        )},
+    ], "classify", max_tokens=200)
+
+    try:
+        parsed = _parse_json(raw)
+        category = str(parsed.get("category", DEFAULT_CATEGORY_ID)).strip()
+    except (json.JSONDecodeError, ValueError, AttributeError):
+        category = DEFAULT_CATEGORY_ID
+    resolved = resolve_category_id(taxonomy, category)
+    if resolved is None or resolved not in allowed:
+        return DEFAULT_CATEGORY_ID
+    return resolved
+
+
+def _set_frontmatter_field(text: str, key: str, value: str) -> str:
+    line = f"{key}: {value}"
+    if not text.startswith("---"):
+        return f"---\n{line}\n---\n\n{text}"
+    end = text.find("---", 3)
+    if end == -1:
+        return f"---\n{line}\n---\n\n{text}"
+    fm = text[:end + 3]
+    body = text[end + 3:]
+    if f"{key}:" in fm:
+        fm = re.sub(rf"{re.escape(key)}:.*", line, fm)
+    else:
+        fm = fm.replace("---\n", f"---\n{line}\n", 1)
+    return fm + body
+
+
 def _write_summary(wiki_dir: Path, doc_name: str, summary: str,
-                    doc_type: str = "short") -> None:
-    """Write summary page with frontmatter."""
+                    doc_type: str = "short", category_id: str | None = None,
+                    full_text_rel: str | None = None) -> Path:
+    """Write a document page with frontmatter.
+
+    Taxonomy-enabled knowledge bases use category document pages as the
+    user-facing copy. For short documents, the body should be the converted
+    Markdown source, while the LLM summary remains an internal planning artifact.
+    Legacy knowledge bases without taxonomy still write summary pages.
+    """
     if summary.startswith("---"):
         end = summary.find("---", 3)
         if end != -1:
             summary = summary[end + 3:].lstrip("\n")
-    summaries_dir = wiki_dir / "summaries"
-    summaries_dir.mkdir(parents=True, exist_ok=True)
+    if category_id:
+        path = category_document_path(wiki_dir, category_id, doc_name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        summaries_dir = wiki_dir / "summaries"
+        summaries_dir.mkdir(parents=True, exist_ok=True)
+        path = summaries_dir / f"{doc_name}.md"
     ext = "md" if doc_type == "short" else "json"
     fm_lines = [
         f"doc_type: {doc_type}",
-        f"full_text: sources/{doc_name}.{ext}",
+        f"full_text: {full_text_rel or f'sources/{doc_name}.{ext}'}",
     ]
+    if category_id:
+        fm_lines.append(f"category: {category_id}")
     frontmatter = "---\n" + "\n".join(fm_lines) + "\n---\n\n"
-    (summaries_dir / f"{doc_name}.md").write_text(frontmatter + summary, encoding="utf-8")
+    path.write_text(frontmatter + summary, encoding="utf-8")
+    return path
+
+
+def _move_summary_to_category(wiki_dir: Path, summary_path: Path, doc_name: str, category_id: str) -> Path:
+    """Move an existing summary page into the category document folder."""
+    target = category_document_path(wiki_dir, category_id, doc_name)
+    if summary_path.resolve() == target.resolve():
+        return summary_path
+    if target.exists():
+        raise FileExistsError(f"Target category document already exists: {target}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(summary_path), str(target))
+    return target
 
 
 _SAFE_NAME_RE = re.compile(r'[^\w\-]')
@@ -427,7 +544,7 @@ def _write_concept(wiki_dir: Path, name: str, content: str, source_file: str, is
         path.write_text(frontmatter + content, encoding="utf-8")
 
 
-def _add_related_link(wiki_dir: Path, concept_slug: str, doc_name: str, source_file: str) -> None:
+def _add_related_link(wiki_dir: Path, concept_slug: str, summary_link: str, source_file: str) -> None:
     """Add a cross-reference link to an existing concept page (no LLM call)."""
     concepts_dir = wiki_dir / "concepts"
     path = concepts_dir / f"{concept_slug}.md"
@@ -435,7 +552,7 @@ def _add_related_link(wiki_dir: Path, concept_slug: str, doc_name: str, source_f
         return
 
     text = path.read_text(encoding="utf-8")
-    link = f"[[summaries/{doc_name}]]"
+    link = f"[[{summary_link}]]"
     if link in text:
         return
 
@@ -458,7 +575,7 @@ def _add_related_link(wiki_dir: Path, concept_slug: str, doc_name: str, source_f
     path.write_text(text, encoding="utf-8")
 
 
-def _backlink_summary(wiki_dir: Path, doc_name: str, concept_slugs: list[str]) -> None:
+def _backlink_summary(wiki_dir: Path, summary_link: str, concept_slugs: list[str]) -> None:
     """Append missing concept wikilinks to the summary page (no LLM call).
 
     After all concepts are generated, this ensures the summary page links
@@ -468,7 +585,7 @@ def _backlink_summary(wiki_dir: Path, doc_name: str, concept_slugs: list[str]) -
     If a ``## Related Concepts`` section already exists, new links are
     appended into it rather than creating a duplicate section.
     """
-    summary_path = wiki_dir / "summaries" / f"{doc_name}.md"
+    summary_path = wiki_dir / f"{summary_link}.md"
     if not summary_path.exists():
         return
 
@@ -486,7 +603,7 @@ def _backlink_summary(wiki_dir: Path, doc_name: str, concept_slugs: list[str]) -
     summary_path.write_text(text, encoding="utf-8")
 
 
-def _backlink_concepts(wiki_dir: Path, doc_name: str, concept_slugs: list[str]) -> None:
+def _backlink_concepts(wiki_dir: Path, summary_link: str, concept_slugs: list[str]) -> None:
     """Append missing summary wikilink to each concept page (no LLM call).
 
     Ensures every concept page links back to the source document's summary,
@@ -495,7 +612,7 @@ def _backlink_concepts(wiki_dir: Path, doc_name: str, concept_slugs: list[str]) 
     If a ``## Related Documents`` section already exists, the link is
     appended into it rather than creating a duplicate section.
     """
-    link = f"[[summaries/{doc_name}]]"
+    link = f"[[{summary_link}]]"
     concepts_dir = wiki_dir / "concepts"
 
     for slug in concept_slugs:
@@ -515,6 +632,9 @@ def _update_index(
     wiki_dir: Path, doc_name: str, concept_names: list[str],
     doc_brief: str = "", concept_briefs: dict[str, str] | None = None,
     doc_type: str = "short",
+    summary_link: str | None = None,
+    category_id: str | None = None,
+    kb_dir: Path | None = None,
 ) -> None:
     """Append document and concept entries to index.md.
 
@@ -537,12 +657,18 @@ def _update_index(
 
     lines = index_path.read_text(encoding="utf-8").split("\n")
 
-    doc_link = f"[[summaries/{doc_name}]]"
+    summary_link = summary_link or f"summaries/{doc_name}"
+    doc_link = f"[[{summary_link}]]"
     if not _section_contains_link(lines, "## Documents", doc_link):
         doc_entry = f"- {doc_link} ({doc_type})"
         if doc_brief:
             doc_entry += f" — {doc_brief}"
         _insert_section_entry(lines, "## Documents", doc_entry)
+
+    if category_id and kb_dir:
+        taxonomy = load_taxonomy(kb_dir)
+        if taxonomy is not None:
+            update_category_page(wiki_dir, taxonomy, category_id, summary_link, doc_brief, doc_type)
 
     for name in concept_names:
         concept_link = f"[[concepts/{name}]]"
@@ -576,13 +702,16 @@ async def _compile_concepts(
     max_concurrency: int,
     doc_brief: str = "",
     doc_type: str = "short",
+    summary_link: str | None = None,
+    category_id: str | None = None,
 ) -> None:
     """Shared Steps 2-4: concepts plan → generate/update → index.
 
     Uses ``_CONCEPTS_PLAN_USER`` to get a plan with create/update/related
     actions, then executes each action type accordingly.
     """
-    source_file = f"summaries/{doc_name}.md"
+    summary_link = summary_link or f"summaries/{doc_name}"
+    source_file = f"{summary_link}.md"
 
     # --- Step 2: Get concepts plan (A cached) ---
     concept_briefs = _read_concept_briefs(wiki_dir)
@@ -601,7 +730,10 @@ async def _compile_concepts(
     except (json.JSONDecodeError, ValueError) as exc:
         logger.warning("Failed to parse concepts plan: %s", exc)
         logger.debug("Raw: %s", plan_raw)
-        _update_index(wiki_dir, doc_name, [], doc_brief=doc_brief, doc_type=doc_type)
+        _update_index(
+            wiki_dir, doc_name, [], doc_brief=doc_brief, doc_type=doc_type,
+            summary_link=summary_link, category_id=category_id, kb_dir=kb_dir,
+        )
         return
 
     # Fallback: if LLM returns a flat list, treat all items as "create"
@@ -619,7 +751,10 @@ async def _compile_concepts(
     related_items = plan["related"]
 
     if not create_items and not update_items and not related_items:
-        _update_index(wiki_dir, doc_name, [], doc_brief=doc_brief, doc_type=doc_type)
+        _update_index(
+            wiki_dir, doc_name, [], doc_brief=doc_brief, doc_type=doc_type,
+            summary_link=summary_link, category_id=category_id, kb_dir=kb_dir,
+        )
         return
 
     # --- Step 3: Generate/update concept pages concurrently (A cached) ---
@@ -635,6 +770,7 @@ async def _compile_concepts(
                 {"role": "assistant", "content": summary},
                 {"role": "user", "content": _CONCEPT_PAGE_USER.format(
                     title=title, doc_name=doc_name,
+                    summary_link=summary_link,
                     update_instruction="",
                 )},
             ], f"concept: {name}")
@@ -705,18 +841,19 @@ async def _compile_concepts(
     # --- Step 3b: Process related items (code only, no LLM) ---
     sanitized_related = [_sanitize_concept_name(s) for s in related_items]
     for slug in sanitized_related:
-        _add_related_link(wiki_dir, slug, doc_name, source_file)
+        _add_related_link(wiki_dir, slug, summary_link, source_file)
 
     # --- Step 3c: Backlink — summary ↔ concepts (code only) ---
     all_concept_slugs = concept_names + sanitized_related
     if all_concept_slugs:
-        _backlink_summary(wiki_dir, doc_name, all_concept_slugs)
-        _backlink_concepts(wiki_dir, doc_name, all_concept_slugs)
+        _backlink_summary(wiki_dir, summary_link, all_concept_slugs)
+        _backlink_concepts(wiki_dir, summary_link, all_concept_slugs)
 
     # --- Step 4: Update index (code only) ---
     _update_index(wiki_dir, doc_name, concept_names,
                   doc_brief=doc_brief, concept_briefs=concept_briefs_map,
-                  doc_type=doc_type)
+                  doc_type=doc_type, summary_link=summary_link,
+                  category_id=category_id, kb_dir=kb_dir)
 
 
 async def compile_short_doc(
@@ -758,13 +895,20 @@ async def compile_short_doc(
     except (json.JSONDecodeError, ValueError):
         doc_brief = ""
         summary = summary_raw
-    _write_summary(wiki_dir, doc_name, summary)
+
+    category_id = _classify_document(kb_dir, model, system_msg, doc_name, summary, doc_brief)
+    source_rel = _wiki_rel(source_path, wiki_dir)
+    summary_path = _write_summary(
+        wiki_dir, doc_name, content if category_id else summary, doc_type="short",
+        category_id=category_id, full_text_rel=source_rel,
+    )
+    summary_link = _wiki_rel(summary_path, wiki_dir, with_suffix=False)
 
     # --- Steps 2-4: Concept plan → generate/update → index ---
     await _compile_concepts(
         wiki_dir, kb_dir, model, system_msg, doc_msg,
         summary, doc_name, max_concurrency, doc_brief=doc_brief,
-        doc_type="short",
+        doc_type="short", summary_link=summary_link, category_id=category_id,
     )
 
 
@@ -803,9 +947,22 @@ async def compile_long_doc(
     # --- Step 1: Generate overview ---
     overview = _llm_call(model, [system_msg, doc_msg], "overview")
 
+    category_id = _classify_document(kb_dir, model, system_msg, doc_name, overview, doc_description)
+    source_path = wiki_dir / "sources" / f"{doc_name}.json"
+    source_rel = _wiki_rel(source_path, wiki_dir) if source_path.exists() else f"sources/{doc_name}.json"
+    summary_text = summary_path.read_text(encoding="utf-8")
+    summary_text = _set_frontmatter_field(summary_text, "doc_type", "pageindex")
+    summary_text = _set_frontmatter_field(summary_text, "full_text", source_rel)
+    if category_id:
+        summary_text = _set_frontmatter_field(summary_text, "category", category_id)
+    summary_path.write_text(summary_text, encoding="utf-8")
+    if category_id:
+        summary_path = _move_summary_to_category(wiki_dir, summary_path, doc_name, category_id)
+    summary_link = _wiki_rel(summary_path, wiki_dir, with_suffix=False)
+
     # --- Steps 2-4: Concept plan → generate/update → index ---
     await _compile_concepts(
         wiki_dir, kb_dir, model, system_msg, doc_msg,
         overview, doc_name, max_concurrency, doc_brief=doc_description,
-        doc_type="pageindex",
+        doc_type="pageindex", summary_link=summary_link, category_id=category_id,
     )

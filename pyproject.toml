@@ -28,21 +28,19 @@ keywords = ["ai", "rag", "retrieval", "knowledge-base", "llm", "pageindex", "age
 dependencies = [
     "pageindex==0.3.0.dev1",
     "markitdown[all]",
+    "pymupdf",
     "click>=8.0",
     "watchdog>=3.0",
     "litellm",
-    "openai-agents",
     "pyyaml",
     "python-dotenv",
     "json-repair",
-    "prompt_toolkit>=3.0",
-    "rich>=13.0",
 ]
 
 [project.urls]
-Repository = "https://github.com/VectifyAI/OpenKB"
-Homepage = "https://github.com/VectifyAI/OpenKB"
-Issues = "https://github.com/VectifyAI/OpenKB/issues"
+Repository = "https://github.com/loqz99156/openwiki"
+Homepage = "https://github.com/loqz99156/openwiki"
+Issues = "https://github.com/loqz99156/openwiki/issues"
 
 [project.scripts]
 openwiki = "openwiki.cli:cli"
@@ -51,7 +49,23 @@ openwiki = "openwiki.cli:cli"
 testpaths = ["tests"]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio"]
+agent = [
+    "openai-agents",
+    "prompt_toolkit>=3.0",
+    "rich>=13.0",
+    "markdown-it-py",
+]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "openai-agents",
+    "prompt_toolkit>=3.0",
+    "rich>=13.0",
+    "markdown-it-py",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["openwiki"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"openwiki/skill_templates" = "openwiki/skill_templates"

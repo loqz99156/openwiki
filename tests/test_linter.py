@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+pytest.importorskip("agents")
+
 from openwiki.agent.linter import build_lint_agent, run_knowledge_lint
 from openwiki.schema import SCHEMA_MD
 

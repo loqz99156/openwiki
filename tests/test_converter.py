@@ -74,6 +74,33 @@ class TestConvertDocumentMarkdown:
         assert result.raw_path is not None
         assert result.raw_path.exists()
 
+    def test_gb18030_markdown_preserves_chinese(self, kb_dir):
+        """Non-UTF-8 markdown should be decoded before writing UTF-8 sources."""
+        src = kb_dir / "raw" / "notes.md"
+        src.write_bytes("# 标题\n\n中文内容".encode("gb18030"))
+
+        result = convert_document(src, kb_dir)
+
+        assert result.source_path is not None
+        assert result.source_path.read_text(encoding="utf-8") == "# 标题\n\n中文内容"
+
+
+class TestConvertDocumentMojibake:
+    def test_markitdown_utf8_mojibake_repaired(self, kb_dir, tmp_path):
+        """Common UTF-8 mojibake from converters should not reach wiki sources."""
+        src = tmp_path / "notes.docx"
+        src.write_bytes(b"fake docx")
+        fake_result = MagicMock(text_content="# Title\n\nä¸­æ–‡å†…å®¹")
+
+        with patch("openwiki.converter.MarkItDown") as mock_markitdown:
+            mock_markitdown.return_value.convert.return_value = fake_result
+            result = convert_document(src, kb_dir)
+
+        assert result.source_path is not None
+        content = result.source_path.read_text(encoding="utf-8")
+        assert "中文内容" in content
+        assert "ä¸­" not in content
+
 
 # ---------------------------------------------------------------------------
 # convert_document — PDF short doc
@@ -91,7 +118,7 @@ class TestConvertDocumentPdfShort:
             patch("openwiki.converter.convert_pdf_with_images", return_value="# Short PDF\n\nConverted.") as mock_cpwi,
         ):
             fake_doc = MagicMock()
-            fake_doc.page_count = 5  # below default threshold of 20
+            fake_doc.page_count = 5  # below default threshold of 30
             fake_doc.__enter__ = MagicMock(return_value=fake_doc)
             fake_doc.__exit__ = MagicMock(return_value=False)
             mock_mu.return_value = fake_doc

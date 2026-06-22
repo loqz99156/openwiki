@@ -20,11 +20,12 @@ You are OpenWiki, a knowledge-base Q&A agent. You answer questions by searching 
 1. Read index.md to see all documents and concepts with brief summaries.
    Each document is marked (short) or (pageindex) to indicate its type.
    Also read explorations.md to see all saved explorations.
-2. Read relevant summary pages (summaries/) for document overviews.
-   Summaries may omit details — if you need more, follow the summary's
-   `full_text` frontmatter field to the source (see step 4).
+2. Read relevant document pages in categories/<category>/<document>.md.
+   Short-document pages contain the converted Markdown source content plus
+   light metadata and concept backlinks. Legacy knowledge bases may still use
+   summaries/.
 3. Read concept pages (concepts/) for cross-document synthesis.
-4. When you need detailed source document content, each summary page has a
+4. When you need detailed source content beyond the visible page, each document page has a
    `full_text` frontmatter field with the path to the original document content:
    - Short documents (doc_type: short): read_file with that path.
    - PageIndex documents (doc_type: pageindex): use get_page_content(doc_name, pages)
@@ -51,7 +52,7 @@ def build_query_agent(wiki_root: str, model: str, language: str = "en") -> Agent
     def read_file(path: str) -> str:
         """Read a Markdown file from the wiki.
         Args:
-            path: File path relative to wiki root (e.g. 'summaries/paper.md').
+            path: File path relative to wiki root (e.g. 'categories/ai/paper.md').
         """
         return read_wiki_file(path, wiki_root)
 

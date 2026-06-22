@@ -21,8 +21,11 @@ def test_init_creates_structure(tmp_path):
         # Directories
         assert (cwd / "raw").is_dir()
         assert (cwd / "wiki" / "sources" / "images").is_dir()
-        assert (cwd / "wiki" / "summaries").is_dir()
         assert (cwd / "wiki" / "concepts").is_dir()
+        assert (cwd / "wiki" / "categories").is_dir()
+        for name in ("openwiki-init", "openwiki-add", "openwiki-chat", "openwiki-category"):
+            assert (cwd / ".codex" / "skills" / name).is_dir()
+            assert (cwd / ".claude" / "skills" / name).is_dir()
         assert (cwd / ".openwiki").is_dir()
 
         # Files
@@ -32,6 +35,24 @@ def test_init_creates_structure(tmp_path):
         assert (cwd / "wiki" / "explorations.md").is_file()
         assert (cwd / ".openwiki" / "config.yaml").is_file()
         assert (cwd / ".openwiki" / "hashes.json").is_file()
+        assert (cwd / ".openwiki" / "taxonomy.yaml").is_file()
+        config_text = (cwd / ".openwiki" / "config.yaml").read_text()
+        assert "retrieval:" in config_text
+        assert "qmd_mode: search" in config_text
+        assert "fallback: wiki_structure" in config_text
+        assert (cwd / ".codex" / "skills" / "openwiki-init" / "SKILL.md").is_file()
+        assert (cwd / ".codex" / "skills" / "openwiki-add" / "SKILL.md").is_file()
+        assert (cwd / ".codex" / "skills" / "openwiki-chat" / "SKILL.md").is_file()
+        assert (cwd / ".codex" / "skills" / "openwiki-category" / "SKILL.md").is_file()
+        assert (cwd / ".claude" / "skills" / "openwiki-init" / "SKILL.md").is_file()
+        assert (cwd / ".claude" / "skills" / "openwiki-category" / "SKILL.md").is_file()
+        assert not (cwd / ".claude" / "commands").exists()
+
+        skill_text = (cwd / ".codex" / "skills" / "openwiki-add" / "SKILL.md").read_text()
+        assert skill_text.startswith("---\n")
+        assert "\nname: openwiki-add\n" in skill_text
+        assert "\ndescription:" in skill_text
+        assert "Register the document hash only after all prior steps succeed" in skill_text
 
         # hashes.json is empty object
         hashes = json.loads((cwd / ".openwiki" / "hashes.json").read_text())
@@ -39,7 +60,11 @@ def test_init_creates_structure(tmp_path):
 
         # index.md header
         index_content = (cwd / "wiki" / "index.md").read_text()
-        assert index_content == "# Knowledge Base Index\n\n## Documents\n\n## Concepts\n\n## Explorations\n- [[explorations]]\n"
+        assert "## Categories" in index_content
+        assert "[[categories/" in index_content
+        assert "## Documents" in index_content
+        assert "## Concepts" in index_content
+        assert "## Explorations" in index_content
 
 
 def test_init_schema_content(tmp_path):

@@ -1,3 +1,8 @@
+import pytest
+
+pytest.importorskip("rich")
+pytest.importorskip("markdown_it")
+
 from rich.console import Group
 from rich.text import Text
 

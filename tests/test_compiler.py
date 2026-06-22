@@ -129,6 +129,16 @@ class TestWriteSummary:
         assert "doc_type: short" in text
         assert "full_text: sources/my-doc.md" in text
 
+    def test_category_writes_document_page_in_category_folder(self, tmp_path):
+        wiki = tmp_path / "wiki"
+        wiki.mkdir()
+        path = _write_summary(wiki, "my-doc", "# Converted Source", category_id="ai")
+        assert path == wiki / "categories" / "ai" / "my-doc.md"
+        assert not (wiki / "summaries").exists()
+        text = path.read_text()
+        assert "category: ai" in text
+        assert "# Converted Source" in text
+
 
 class TestWriteConcept:
     def test_new_concept_with_brief(self, tmp_path):

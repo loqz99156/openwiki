@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+pytest.importorskip("agents")
+
 from openwiki.agent.query import build_query_agent, run_query
 from openwiki.schema import SCHEMA_MD
 

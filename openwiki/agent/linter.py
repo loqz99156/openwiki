@@ -23,11 +23,11 @@ for quality issues that structural tools cannot detect.
    may be outdated?
 4. **Redundancy** — Are there multiple pages that cover the same content and
    could be merged?
-5. **Concept coverage** — Are important themes in the summaries missing concept pages?
+5. **Concept coverage** — Are important themes in document pages missing concept pages?
 
 ## Process
 1. Start with index.md to understand scope. Follow the link to explorations.md for saved explorations.
-2. Read summary pages to understand document content.
+2. Read category document pages to understand document content.
 3. Read concept pages to check for contradictions and gaps.
 4. Produce a structured Markdown report listing issues found with references
    to the specific pages where each issue occurs.
@@ -57,7 +57,7 @@ def build_lint_agent(wiki_root: str, model: str, language: str = "en") -> Agent:
         """List all Markdown files in a wiki subdirectory.
 
         Args:
-            directory: Subdirectory path relative to wiki root (e.g. 'summaries').
+            directory: Subdirectory path relative to wiki root (e.g. 'categories').
         """
         return list_wiki_files(directory, wiki_root)
 
@@ -66,7 +66,7 @@ def build_lint_agent(wiki_root: str, model: str, language: str = "en") -> Agent:
         """Read a Markdown file from the wiki.
 
         Args:
-            path: File path relative to wiki root (e.g. 'summaries/paper.md').
+            path: File path relative to wiki root (e.g. 'categories/ai/paper.md').
         """
         return read_wiki_file(path, wiki_root)
 
@@ -100,7 +100,7 @@ async def run_knowledge_lint(kb_dir: Path, model: str) -> str:
     prompt = (
         "Please audit this knowledge base wiki for semantic quality issues: "
         "contradictions, gaps, staleness, redundancy, and missing concept pages. "
-        "Start with index.md, follow the link to explorations.md, then read summaries and concepts as needed. "
+        "Start with index.md, follow the link to explorations.md, then read category document pages and concepts as needed. "
         "Produce a structured Markdown report."
     )
 

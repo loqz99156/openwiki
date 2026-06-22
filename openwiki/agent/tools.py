@@ -28,7 +28,8 @@ def list_wiki_files(directory: str, wiki_root: str) -> str:
     if not target.exists() or not target.is_dir():
         return "No files found."
 
-    md_files = sorted(p.name for p in target.iterdir() if p.suffix == ".md")
+    md_files = sorted(str(p.relative_to(target)).replace("\\", "/")
+                      for p in target.rglob("*.md"))
     if not md_files:
         return "No files found."
     return "\n".join(md_files)
@@ -92,7 +93,7 @@ def parse_pages(pages: str) -> list[int]:
 def get_wiki_page_content(doc_name: str, pages: str, wiki_root: str) -> str:
     """Return formatted content for specified pages of a document.
 
-    Reads ``{wiki_root}/sources/{doc_name}.json`` which must be a JSON array of
+    Reads ``{wiki_root}/sources/**/{doc_name}.json`` which must be a JSON array of
     objects with at least ``{"page": int, "content": str}`` fields and an
     optional ``"images"`` list of ``{"path": str, ...}`` objects.
 
@@ -105,11 +106,13 @@ def get_wiki_page_content(doc_name: str, pages: str, wiki_root: str) -> str:
         Formatted page content, or an error message string.
     """
     root = Path(wiki_root).resolve()
-    target = (root / "sources" / f"{doc_name}.json").resolve()
+    sources_dir = root / "sources"
+    matches = sorted(sources_dir.rglob(f"{doc_name}.json")) if sources_dir.exists() else []
+    target = (matches[0] if matches else sources_dir / f"{doc_name}.json").resolve()
     if not target.is_relative_to(root):
         return "Access denied: path escapes wiki root."
     if not target.exists():
-        return f"File not found: sources/{doc_name}.json"
+        return f"File not found: sources/**/{doc_name}.json"
 
     data = _json.loads(target.read_text(encoding="utf-8"))
     requested = set(parse_pages(pages))
@@ -188,4 +191,3 @@ def write_wiki_file(path: str, content: str, wiki_root: str) -> str:
     full_path.parent.mkdir(parents=True, exist_ok=True)
     full_path.write_text(content, encoding="utf-8")
     return f"Written: {path}"
-

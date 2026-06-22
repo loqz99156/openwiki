@@ -104,7 +104,8 @@ def index_long_document(pdf_path: Path, kb_dir: Path) -> IndexResult:
         json_mod.dumps(all_pages, ensure_ascii=False, indent=2), encoding="utf-8",
     )
 
-    # Write wiki/summaries/ (no images, just summaries)
+    # Write a temporary PageIndex summary. The compiler moves taxonomy-enabled
+    # knowledge bases into wiki/categories/<category>/<doc>.md after classification.
     summaries_dir = kb_dir / "wiki" / "summaries"
     summaries_dir.mkdir(parents=True, exist_ok=True)
     summary_md = render_summary_md(tree, pdf_path.stem, doc_id)

@@ -3,7 +3,7 @@
 Checks for:
 - Broken [[wikilinks]] — link targets that don't exist
 - Orphaned pages — pages with no incoming or outgoing links
-- Missing wiki entries — raw files without corresponding sources/summaries
+- Missing wiki entries — raw files without corresponding sources/document pages
 - Index sync — index.md and explorations.md links vs actual files on disk
 """
 from __future__ import annotations
@@ -136,8 +136,8 @@ def find_orphans(wiki: Path) -> list[str]:
 def find_missing_entries(raw: Path, wiki: Path) -> list[str]:
     """Find files in raw/ that have no corresponding wiki entries.
 
-    A file is considered "present" if it has either a sources/ or summaries/
-    page with the same stem.
+    A file is considered "present" if it has either a sources/ page, a legacy
+    summaries/ page, or a category document page with the same stem.
 
     Args:
         raw: Path to the raw documents directory.
@@ -148,10 +148,14 @@ def find_missing_entries(raw: Path, wiki: Path) -> list[str]:
     """
     sources_dir = wiki / "sources"
     summaries_dir = wiki / "summaries"
+    categories_dir = wiki / "categories"
 
-    sources_stems = {p.stem for p in sources_dir.glob("*.md")} if sources_dir.exists() else set()
-    summary_stems = {p.stem for p in summaries_dir.glob("*.md")} if summaries_dir.exists() else set()
-    known_stems = sources_stems | summary_stems
+    sources_stems = {p.stem for p in sources_dir.rglob("*.md")} if sources_dir.exists() else set()
+    summary_stems = {p.stem for p in summaries_dir.rglob("*.md")} if summaries_dir.exists() else set()
+    category_stems = {
+        p.stem for p in categories_dir.rglob("*.md") if p.name != "index.md"
+    } if categories_dir.exists() else set()
+    known_stems = sources_stems | summary_stems | category_stems
 
     missing: list[str] = []
     if raw.exists():
@@ -168,7 +172,7 @@ def check_index_sync(wiki: Path) -> list[str]:
     Returns issues for:
     - Links in index.md pointing to non-existent pages
     - Links in explorations.md pointing to non-existent pages
-    - Pages in summaries/ or concepts/ not mentioned in index.md
+    - Pages in summaries/, categories/<category>/, or concepts/ not mentioned in index.md
     - Pages in explorations/ not mentioned in explorations.md
 
     Args:
@@ -193,7 +197,7 @@ def check_index_sync(wiki: Path) -> list[str]:
         if lnk_norm not in pages:
             issues.append(f"index.md links to missing page: [[{lnk}]]")
 
-    # Check that summaries and concepts pages are mentioned in index
+    # Check that document and concept pages are mentioned in index
     index_stems = {Path(lnk.strip()).stem for lnk in index_links}
     index_text_lower = index_text.lower()
 
@@ -201,10 +205,21 @@ def check_index_sync(wiki: Path) -> list[str]:
         subdir_path = wiki / subdir
         if not subdir_path.exists():
             continue
-        for md in sorted(subdir_path.glob("*.md")):
+        for md in sorted(subdir_path.rglob("*.md")):
             stem = md.stem
             if stem not in index_stems and stem.lower() not in index_text_lower:
-                issues.append(f"{subdir}/{stem}.md not mentioned in index.md")
+                rel = md.relative_to(wiki)
+                issues.append(f"{rel} not mentioned in index.md")
+
+    categories_dir = wiki / "categories"
+    if categories_dir.exists():
+        for md in sorted(categories_dir.rglob("*.md")):
+            if md.name == "index.md":
+                continue
+            stem = md.stem
+            if stem not in index_stems and stem.lower() not in index_text_lower:
+                rel = md.relative_to(wiki)
+                issues.append(f"{rel} not mentioned in index.md")
 
     # Check explorations.md
     explorations_path = wiki / "explorations.md"

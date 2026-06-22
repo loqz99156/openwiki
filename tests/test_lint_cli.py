@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 from unittest.mock import patch
 
@@ -64,10 +66,15 @@ class TestLintCommand:
         kb_dir = _setup_kb(tmp_path)
         hashes = {"abc": {"name": "paper.pdf", "type": "pdf"}}
         (kb_dir / ".openwiki" / "hashes.json").write_text(json.dumps(hashes))
+
+        async def fake_run_knowledge_lint(_kb_dir, _model):
+            return "No issues."
+
+        fake_linter = types.SimpleNamespace(run_knowledge_lint=fake_run_knowledge_lint)
         runner = CliRunner()
         with patch("openwiki.cli._find_kb_dir", return_value=kb_dir), \
              patch("openwiki.cli._setup_llm_key"), \
-             patch("openwiki.agent.linter.run_knowledge_lint", return_value="No issues."):
+             patch.dict(sys.modules, {"openwiki.agent.linter": fake_linter}):
             result = runner.invoke(cli, ["lint"])
         assert result.exit_code == 0
         assert "Running structural lint" in result.output

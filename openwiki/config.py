@@ -8,7 +8,12 @@ import yaml
 DEFAULT_CONFIG: dict[str, Any] = {
     "model": "gpt-5.4-mini",
     "language": "en",
-    "pageindex_threshold": 20,
+    "pageindex_threshold": 30,
+    "retrieval": {
+        "engine": "auto",
+        "qmd_mode": "search",
+        "fallback": "wiki_structure",
+    },
 }
 
 GLOBAL_CONFIG_DIR = Path.home() / ".config" / "openwiki"
